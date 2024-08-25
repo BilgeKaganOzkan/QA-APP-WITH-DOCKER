@@ -1,0 +1,9 @@
+FastAPI
+uvicorn
+fastapi-users
+langchain
+langchain_openai
+python-dotenv
+pandas
+redis
+aiosqlite
