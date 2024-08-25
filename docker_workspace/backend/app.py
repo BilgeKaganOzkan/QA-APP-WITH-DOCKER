@@ -29,4 +29,4 @@ app.include_router(post_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=app_ip, port=app_port, access_log=True)
+    uvicorn.run(app, host=app_ip, port=app_port, access_log=False)
