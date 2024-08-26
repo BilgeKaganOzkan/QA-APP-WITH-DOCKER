@@ -14,3 +14,5 @@ To start the application, simply run the `run.sh` script. This will set up the e
 ```
 ./run.sh
 ```
+
+After the program start and container terminal is available, you can access the program from `http://172.18.0.22:3000/` address.
