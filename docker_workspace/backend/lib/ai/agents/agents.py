@@ -2,13 +2,16 @@ from fastapi import HTTPException, status
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
+from langchain.chains import RetrievalQA
+from langchain_community.vectorstores.faiss import FAISS
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import (create_async_engine, AsyncSession)
 from lib.ai.memory.memory import CustomMemoryDict
 import asyncio
 
-class QueryAgent:
+class SqlQueryAgent:
     def __init__(self, llm: ChatOpenAI, memory: CustomMemoryDict, db_path: str, max_iteration: int) -> None:
         self.memory = memory
         self.db_path = db_path
@@ -119,7 +122,53 @@ class QueryAgent:
         human_message_dict = {"human_message": user_query}
         sql_query_result_pair_dict = {"sql_command_result_pair_list": sql_query_result_pair_list}
         ai_message_dict = {"ai_message": result}
-        self.memory.saveContext(human_message_dict, sql_query_result_pair_dict, ai_message_dict)
-    
+        self.memory.saveContext(human_message=human_message_dict, sql_command_result_pair_dict=sql_query_result_pair_dict, ai_message=ai_message_dict, is_sql=True)
+
     async def getHistoryToMemory(self) -> str:
-        return self.memory.getHistory()
+        return self.memory.getHistory(is_sql=True)
+
+
+
+class RagQueryAgent:
+    def __init__(self, llm: ChatOpenAI, memory: CustomMemoryDict, db_path: str, embeddings: OpenAIEmbeddings) -> None:
+        self.memory = memory
+        
+        self.vector_store = FAISS.load_local(db_path + "/faiss", embeddings, allow_dangerous_deserialization=True)
+        retriever = self.vector_store.as_retriever(search_kwargs={"k": 6})
+        self.qa_chain = RetrievalQA.from_chain_type(llm=llm.get_baseLLM(),
+                                                    chain_type='stuff',
+                                                    retriever=retriever,
+                                                    verbose=True)
+        
+        prompt_template = PromptTemplate(
+            input_variables=["context", "history", "input", "file_names"],
+            template=("""You are an AI assistant that helps users by retrieving relevant information \
+                from a database of documents and answering their questions. 
+                      Use the following information to answer the query.
+
+                      Conversation History: "{history}"
+
+                      Context from retrieved documents: "{context}"
+
+                      User's Question: "{input}"
+
+                      Your Answer:"""))
+
+        self.llm_chain = prompt_template | llm | StrOutputParser()
+    
+    async def execute(self, user_query: str) -> str:
+        history = await self.getHistoryToMemory()
+        context = await asyncio.to_thread(self.qa_chain.invoke, input={"query": user_query})
+        result = await asyncio.to_thread(self.llm_chain.invoke, input={"context": context,
+                                                                       "input": user_query,
+                                                                       "history": history})
+        await self.addHistoryToMemory(user_query=user_query, result=result)
+        return result
+    
+    async def addHistoryToMemory(self, user_query: dict, result: dict) -> None:
+        human_message_dict = {"human_message": user_query}
+        ai_message_dict = {"ai_message": result}
+        self.memory.saveContext(human_message=human_message_dict, sql_command_result_pair_dict=[], ai_message=ai_message_dict, is_sql=False)
+
+    async def getHistoryToMemory(self) -> str:
+        return self.memory.getHistory(is_sql=False)

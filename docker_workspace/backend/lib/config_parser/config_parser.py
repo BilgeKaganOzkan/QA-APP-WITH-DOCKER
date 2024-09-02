@@ -23,7 +23,10 @@ class Configuration:
         return int(self.config_data.db_max_table_limit)
 
     def getLLMModelName(self) -> str:
-        return str(self.config_data.llm_configs.llm_model_name)
+        return str(self.config_data.llm_configs.sql_llm_model_name)
+
+    def getEmbeddingLLMModelName(self) -> str:
+        return str(self.config_data.llm_configs.embedding_model_name)
     
     def getLLMMaxIteration(self) -> int:
         return int(self.config_data.llm_configs.llm_max_iteration)
@@ -33,10 +36,16 @@ class Configuration:
 
     def getUploadCsvEndpoint(self) -> str:
         return str(self.config_data.end_points.upload_csv)
+    
+    def getUploadPdfEndpoint(self) -> str:
+        return str(self.config_data.end_points.upload_pdf)
 
-    def getQueryEndpoint(self) -> str:
-        return str(self.config_data.end_points.query)
+    def getSqlQueryEndpoint(self) -> str:
+        return str(self.config_data.end_points.sql_query)
 
+    def getRagQueryEndpoint(self) -> str:
+        return str(self.config_data.end_points.rag_query)
+    
     def getEndSessionEndpoint(self) -> str:
         return str(self.config_data.end_points.end_session)
 

@@ -14,3 +14,6 @@ class LLM:
     
     def __call__(self, query: str) -> str:
         return self.llm.invoke(query)
+    
+    def get_baseLLM(self) -> ChatOpenAI:
+        return self.llm

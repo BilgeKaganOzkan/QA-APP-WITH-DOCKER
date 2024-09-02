@@ -5,19 +5,27 @@ from sqlalchemy.orm import sessionmaker
 from typing import List
 from lib.config_parser.config_parser import Configuration
 from lib.tools.redis import RedisTool
-from lib.ai.agents.agents import QueryAgent
+from lib.ai.agents.agents import SqlQueryAgent, RagQueryAgent
 from lib.ai.memory.memory import CustomMemoryDict
 from lib.ai.llm.llm import LLM
+from lib.ai.llm.embedding import Embedding
 from lib.models.post_models import (HumanRequest, InformationResponse, AIResponse)
-import pandas as pd, os, asyncio
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_community.vectorstores.faiss import FAISS
+from langchain_community.docstore.in_memory import InMemoryDocstore
+import pandas as pd, os, asyncio, shutil
 
 config = Configuration()
 
 llm_model_name = config.getLLMModelName()
+embedding_model_name = config.getEmbeddingLLMModelName()
 llm_max_iteration = config.getLLMMaxIteration()
 start_session_end_point = config.getStartSessionEndpoint()
 upload_csv_end_point = config.getUploadCsvEndpoint()
-query_end_point = config.getQueryEndpoint()
+upload_pdf_end_point = config.getUploadPdfEndpoint()
+sql_query_end_point = config.getSqlQueryEndpoint()
+rag_query_end_point = config.getRagQueryEndpoint()
 end_session_end_point = config.getEndSessionEndpoint()
 session_timeout = config.getSessionTimeout()
 db_max_table_limit = config.getDbMaxTableLimit()
@@ -31,6 +39,7 @@ del config
 router = APIRouter()
 memory = CustomMemoryDict()
 llm = LLM(llm_model_name=llm_model_name)
+embedding = Embedding(model_name=embedding_model_name).get_embedding()
 redis = RedisTool(memory=memory, session_timeout=session_timeout, redis_ip=redis_ip, redis_port=redis_port)
 
 
@@ -91,9 +100,56 @@ async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depend
     
     return {"informationMessage": "CSV files uploaded and converted to database successfully."}
 
+@router.post(upload_pdf_end_point, response_model=InformationResponse)
+async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depends(redis.getSession)):
+    session_id, _ = session
+    first_iteration = True
+    
+    temp_db_path = f"./.vector_stores/{session_id}"
+    
+    if os.path.exists(temp_db_path):
+        first_iteration = False
+        vector_store = FAISS.load_local(temp_db_path + "/faiss", embedding, allow_dangerous_deserialization=True)
+    else:
+        os.makedirs(temp_db_path, exist_ok=True)
+        os.makedirs(temp_db_path + "/documents", exist_ok=True)
+        os.makedirs(temp_db_path + "/faiss", exist_ok=True)
+        vector_store = FAISS(embedding_function=embedding, docstore= InMemoryDocstore(), index_to_docstore_id={}, index=0)
 
-@router.post(query_end_point, response_model=AIResponse)
-async def query(request: HumanRequest, session: tuple = Depends(redis.getSession)):
+    try:
+        for file in files:
+            temp_file_name = file.filename
+            file_path = temp_db_path + "/documents/" + temp_file_name
+            with open(file_path, "wb") as temp_file:
+                temp_file.write(await file.read())
+            
+            pdf_loader = PyPDFLoader(file_path)
+            documents = pdf_loader.load()
+
+            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200, separator="\n")
+            
+            split_texts = []
+            for doc in documents:
+                split_texts.extend(text_splitter.split_text(doc.page_content))
+                
+            if first_iteration == True:
+                first_iteration = False
+                vector_store = await FAISS.afrom_texts(split_texts, embedding)
+            else:
+                await vector_store.aadd_texts(split_texts)
+            
+        vector_store.save_local(temp_db_path + "/faiss")
+    except Exception as e:
+        shutil.rmtree(path=temp_db_path, ignore_errors=True)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to convert PDF file. Please check the PDF file and try again.")
+            
+    await redis.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
+
+    return {"informationMessage": "PDF files uploaded and converted to database successfully."}
+
+
+@router.post(sql_query_end_point, response_model=AIResponse)
+async def sqlQuery(request: HumanRequest, session: tuple = Depends(redis.getSession)):
     data = request.model_dump()
     session_id, session_data = session
     
@@ -102,14 +158,31 @@ async def query(request: HumanRequest, session: tuple = Depends(redis.getSession
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No database associated with the session.")
     
     session_memory = await memory.getMemory(session_id=session_id)
-    query_agent = QueryAgent(llm=llm, memory=session_memory, db_path=temp_db_path, max_iteration=llm_max_iteration)
+    sql_query_agent = SqlQueryAgent(llm=llm, memory=session_memory, db_path=temp_db_path, max_iteration=llm_max_iteration)
     
-    response = await query_agent.execute(data["humanMessage"])
+    response = await sql_query_agent.execute(data["humanMessage"])
 
     await redis.resetSessionTimeout(session_id=session_id)
     
     return {"aiMessage": response}
 
+@router.post(rag_query_end_point, response_model=AIResponse)
+async def ragQuery(request: HumanRequest, session: tuple = Depends(redis.getSession)):
+    data = request.model_dump()
+    session_id, session_data = session
+    
+    temp_db_path = session_data.get("db_path")
+    if not temp_db_path:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No database associated with the session.")
+    
+    session_memory = await memory.getMemory(session_id=session_id)
+    rag_query_agent = RagQueryAgent(llm=llm, memory=session_memory, db_path=temp_db_path, embeddings=embedding)
+    
+    response = await rag_query_agent.execute(data["humanMessage"])
+
+    await redis.resetSessionTimeout(session_id=session_id)
+    
+    return {"aiMessage": response}
 
 @router.delete(end_session_end_point, response_model=InformationResponse)
 async def endSession(response: Response, session: tuple = Depends(redis.getSession)):
@@ -122,10 +195,11 @@ async def endSession(response: Response, session: tuple = Depends(redis.getSessi
         response.delete_cookie("session_id")
 
         try:
-            await asyncio.to_thread(os.remove, db_path)
-        except Exception as e:
-            print(f"Failed to delete database file: {e}")
-
-        await memory.deleteMemory(session_id=session_id)
+            if os.path.isdir(db_path):
+                await asyncio.to_thread(shutil.rmtree, path=db_path, ignore_errors=True)
+            else:
+                await asyncio.to_thread(os.remove, db_path)
+        finally:
+            await memory.deleteMemory(session_id=session_id)
         
     return {"informationMessage": "Session ended."}
