@@ -11,7 +11,7 @@ from lib.ai.llm.llm import LLM
 from lib.ai.llm.embedding import Embedding
 from lib.models.post_models import (HumanRequest, InformationResponse, AIResponse)
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores.faiss import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
 import pandas as pd, os, asyncio, shutil
@@ -103,49 +103,64 @@ async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depend
 @router.post(upload_pdf_end_point, response_model=InformationResponse)
 async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depends(redis.getSession)):
     session_id, _ = session
-    first_iteration = True
-    
     temp_db_path = f"./.vector_stores/{session_id}"
-    
-    if os.path.exists(temp_db_path):
-        first_iteration = False
-        vector_store = FAISS.load_local(temp_db_path + "/faiss", embedding, allow_dangerous_deserialization=True)
+
+    if os.path.exists(temp_db_path + "/faiss"):
+        vector_store = FAISS.load_local(
+            temp_db_path + "/faiss", embedding, allow_dangerous_deserialization=True
+        )
+        print(f"Loaded existing vector store with {len(vector_store.docstore._dict)} documents.")
     else:
         os.makedirs(temp_db_path, exist_ok=True)
         os.makedirs(temp_db_path + "/documents", exist_ok=True)
-        os.makedirs(temp_db_path + "/faiss", exist_ok=True)
-        vector_store = FAISS(embedding_function=embedding, docstore= InMemoryDocstore(), index_to_docstore_id={}, index=0)
+        vector_store = None
+        print("Created new vector store.")
 
     try:
         for file in files:
             temp_file_name = file.filename
-            file_path = temp_db_path + "/documents/" + temp_file_name
+            file_path = os.path.join(temp_db_path, "documents", temp_file_name)
+            print(f"Processing file: {temp_file_name}")
+
             with open(file_path, "wb") as temp_file:
                 temp_file.write(await file.read())
-            
+
             pdf_loader = PyPDFLoader(file_path)
             documents = pdf_loader.load()
+            print(f"Number of pages loaded from {temp_file_name}: {len(documents)}")
 
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200, separator="\n")
-            
-            split_texts = []
+            # Add metadata
             for doc in documents:
-                split_texts.extend(text_splitter.split_text(doc.page_content))
-                
-            if first_iteration == True:
-                first_iteration = False
-                vector_store = await FAISS.afrom_texts(split_texts, embedding)
+                doc.metadata['filename'] = temp_file_name
+
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                separators=["\n"]
+            )
+            split_documents = text_splitter.split_documents(documents)
+            print(f"Number of split documents from {temp_file_name}: {len(split_documents)}")
+
+            if vector_store is None:
+                vector_store = FAISS.from_documents(split_documents, embedding)
+                print(f"Vector store created with {len(split_documents)} documents from {temp_file_name}")
             else:
-                await vector_store.aadd_texts(split_texts)
-            
+                print(f"Vector store before adding {temp_file_name}: {len(vector_store.docstore._dict)} documents")
+                vector_store.add_documents(split_documents)
+                print(f"Vector store after adding {temp_file_name}: {len(vector_store.docstore._dict)} documents")
+
         vector_store.save_local(temp_db_path + "/faiss")
+        print("Vector store saved.")
     except Exception as e:
         shutil.rmtree(path=temp_db_path, ignore_errors=True)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to convert PDF file. Please check the PDF file and try again.")
-            
-    await redis.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to convert PDF file. Error: {str(e)}"
+        )
 
+    await redis.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
     return {"informationMessage": "PDF files uploaded and converted to database successfully."}
+
 
 
 @router.post(sql_query_end_point, response_model=AIResponse)
@@ -176,7 +191,7 @@ async def ragQuery(request: HumanRequest, session: tuple = Depends(redis.getSess
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No database associated with the session.")
     
     session_memory = await memory.getMemory(session_id=session_id)
-    rag_query_agent = RagQueryAgent(llm=llm, memory=session_memory, db_path=temp_db_path, embeddings=embedding)
+    rag_query_agent = RagQueryAgent(llm=llm, memory=session_memory, db_path=temp_db_path, embeddings=embedding, max_iteration=llm_max_iteration)
     
     response = await rag_query_agent.execute(data["humanMessage"])
 
