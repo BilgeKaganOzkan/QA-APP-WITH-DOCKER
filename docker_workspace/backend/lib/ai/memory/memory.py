@@ -4,35 +4,24 @@ class CustomSQLMemory:
 
     def saveContext(self, human_message: dict, command_result_pair_dict: list, ai_message: dict, is_sql: bool = True) -> None:
         input_data = human_message.get("human_message", "")
+        command_result_pair_list = command_result_pair_dict.get("command_result_pair_list", [])
         output_data = ai_message.get("ai_message", "")
         
         context_dict = {
                 "human_message": input_data,
+                "command_result_pair_list": command_result_pair_list,
                 "ai_message": output_data
             }
-        
-        if is_sql == True:
-            command_result_pair_list = command_result_pair_dict.get("command_result_pair_list", [])
-            context_dict["command_result_pair_list"] = command_result_pair_list
-
 
         self.memory_data.append(context_dict)
             
-    def getHistory(self, is_sql: bool = True) -> dict:
-        if is_sql == True:        
-            history = "\n\n".join(
-                [
-                    f"HumanMessage: {item['human_message']}\nSQL Queries and their results list: {item['command_result_pair_list']}\nAIMessage: {item['ai_message']}"
-                    for item in self.memory_data
-                ]
-            )
-        else:
-            history = "\n\n".join(
-                [
-                    f"HumanMessage: {item['human_message']}\nAIMessage: {item['ai_message']}"
-                    for item in self.memory_data
-                ]
-            )
+    def getHistory(self, is_sql: bool = True) -> dict:    
+        history = "\n\n".join(
+            [
+                f"HumanMessage: {item['human_message']}\nCommands and their results list: {item['command_result_pair_list']}\nAIMessage: {item['ai_message']}"
+                for item in self.memory_data
+            ]
+        )
         
         return history
 

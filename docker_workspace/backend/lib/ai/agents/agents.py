@@ -1,18 +1,17 @@
 from fastapi import HTTPException, status
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_openai import ChatOpenAI
-from langchain_openai import OpenAIEmbeddings
-from langchain.chains import RetrievalQA
 from langchain_community.vectorstores.faiss import FAISS
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import (create_async_engine, AsyncSession)
 from lib.ai.memory.memory import CustomSQLMemory
+from lib.ai.llm.llm import LLM
+from lib.ai.llm.embedding import Embedding
 import asyncio
 
 class SqlQueryAgent:
-    def __init__(self, llm: ChatOpenAI, memory: CustomSQLMemory, db_path: str, max_iteration: int) -> None:
+    def __init__(self, llm: LLM, memory: CustomSQLMemory, db_path: str, max_iteration: int) -> None:
         self.memory = memory
         self.db_path = db_path
         self.max_iteration = max_iteration
@@ -87,13 +86,13 @@ class SqlQueryAgent:
 
         for i in range(self.max_iteration):
             history = await self.getHistoryFromMemory()
-            result = await asyncio.to_thread(self.llm_chain.invoke, input = {"table_names": table_names,
-                                                                       "column_names": column_names,
-                                                                       "input": user_query, 
-                                                                       "history": history,
-                                                                       "command_result_pair": command_result_pair,
-                                                                       "iteration": i+1, 
-                                                                       "max_iteration": self.max_iteration})
+            result = await self.llm_chain.ainvoke(input = {"table_names": table_names,
+                                                            "column_names": column_names,
+                                                            "input": user_query, 
+                                                            "history": history,
+                                                            "command_result_pair": command_result_pair,
+                                                            "iteration": i+1, 
+                                                            "max_iteration": self.max_iteration})
             
             if "SQL Query:" in result:
                 sql_query = result.split("SQL Query:")[-1].strip()
@@ -130,7 +129,7 @@ class SqlQueryAgent:
 
 
 class RagQueryAgent:
-    def __init__(self, llm: ChatOpenAI, memory: CustomSQLMemory, db_path: str, embeddings: OpenAIEmbeddings, max_iteration: int) -> None:
+    def __init__(self, llm: LLM, memory: CustomSQLMemory, db_path: str, embeddings: Embedding, max_iteration: int) -> None:
         self.max_iteration = max_iteration
         self.memory = memory
         
@@ -192,21 +191,20 @@ class RagQueryAgent:
     async def execute(self, user_query: str) -> str:
         result = None
         filter_file_result_pair = []
-        available_files = self.getAvailableFiles()
         
         for i in range(self.max_iteration):
             history = await self.getHistoryFromMemory()
-            result = await asyncio.to_thread(self.llm_chain.invoke, input = {"file_names": available_files,
-                                                                        "history": history,
-                                                                        "command_result_pair": filter_file_result_pair,
-                                                                        "max_iteration": self.max_iteration,
-                                                                        "iteration": i,
-                                                                        "input": user_query})
+            result = await self.llm_chain.ainvoke(input = {"file_names": self.getAvailableFiles(),
+                                                            "history": history,
+                                                            "command_result_pair": filter_file_result_pair,
+                                                            "max_iteration": self.max_iteration,
+                                                            "iteration": i,
+                                                            "input": user_query})
             
             if "Filter Command:" in result:
                 filter_file = result.split("Filter Command:")[-1].strip()
                 self.retriever.search_kwargs["filter"] = {"filename": filter_file}
-                relevant_doc = await asyncio.to_thread(self.retriever.get_relevant_documents, user_query)
+                relevant_doc = await self.retriever.aget_relevant_documents(user_query)
                 result = "\n\n".join([doc.page_content for doc in relevant_doc])
                 filter_file_result_pair.append({f"Filter Command {i}": filter_file, f"Filter Command Result {i}": result})
             else:

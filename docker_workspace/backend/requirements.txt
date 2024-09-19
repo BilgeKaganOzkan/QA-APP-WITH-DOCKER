@@ -8,5 +8,6 @@ python-dotenv
 pandas
 redis
 aiosqlite
+aiofiles
 pypdf
 faiss-cpu

@@ -1,7 +1,7 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request, HTTPException, status
 from logging.handlers import RotatingFileHandler
-import logging
+import logging, os
 
 log_file_path = "./.log/fastapi_app.log"
 

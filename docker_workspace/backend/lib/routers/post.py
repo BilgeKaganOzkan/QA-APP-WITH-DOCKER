@@ -1,56 +1,6 @@
-from fastapi import (APIRouter, Depends, HTTPException, status, Response, UploadFile, File)
-from sqlalchemy.ext.asyncio import (create_async_engine, AsyncSession)
-from sqlalchemy import (text, create_engine)
-from sqlalchemy.orm import sessionmaker
-from typing import List
-from lib.config_parser.config_parser import Configuration
-from lib.tools.redis import RedisTool
-from lib.ai.agents.agents import SqlQueryAgent, RagQueryAgent
-from lib.ai.memory.memory import CustomMemoryDict
-from lib.ai.llm.llm import LLM
-from lib.ai.llm.embedding import Embedding
-from lib.models.post_models import (HumanRequest, InformationResponse, AIResponse)
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores.faiss import FAISS
-from langchain_community.docstore.in_memory import InMemoryDocstore
-import pandas as pd, os, asyncio, shutil
-
-config = Configuration()
-
-llm_model_name = config.getLLMModelName()
-embedding_model_name = config.getEmbeddingLLMModelName()
-llm_max_iteration = config.getLLMMaxIteration()
-start_session_end_point = config.getStartSessionEndpoint()
-upload_csv_end_point = config.getUploadCsvEndpoint()
-upload_pdf_end_point = config.getUploadPdfEndpoint()
-sql_query_end_point = config.getSqlQueryEndpoint()
-rag_query_end_point = config.getRagQueryEndpoint()
-end_session_end_point = config.getEndSessionEndpoint()
-session_timeout = config.getSessionTimeout()
-db_max_table_limit = config.getDbMaxTableLimit()
-redis_ip = config.getRedisIP()
-redis_port = config.getRedisPort()
-app_ip = config.getAppIP()
-app_port = config.getAppPort()
-
-del config
+from lib.routers.instance import *
 
 router = APIRouter()
-memory = CustomMemoryDict()
-llm = LLM(llm_model_name=llm_model_name)
-embedding = Embedding(model_name=embedding_model_name).get_embedding()
-redis = RedisTool(memory=memory, session_timeout=session_timeout, redis_ip=redis_ip, redis_port=redis_port)
-
-
-@router.get(start_session_end_point, response_model=InformationResponse)
-async def startSession(response: Response):
-    session_id = await redis.createSession()
-    await memory.createMemory(session_id=session_id)
-    response.set_cookie(key="session_id", value=session_id)
-    
-    return {"informationMessage": "Session started."}
-
 
 @router.post(upload_csv_end_point, response_model=InformationResponse)
 async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depends(redis.getSession)):
@@ -70,9 +20,10 @@ async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depend
                 result = result.fetchall()
                 db_tables = [row[0] for row in result]
             except Exception as e:
-                print(f"Failed to retrieve tables: {e}")
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to convert CSV file. Please check the CSV file and try again.")
 
+    del async_db_engine
+    
     if len(files) > db_max_table_limit - len(db_tables):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"You reached max file limit {db_max_table_limit}")
 
@@ -86,9 +37,9 @@ async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depend
         while table_name in db_tables:
             table_name = f"{original_table_name}_{table_counter}"
             table_counter += 1
-
-        del async_db_engine
-
+        
+        db_tables.append(original_table_name)
+        
         def run_pandas_to_sql(df, table_name, db_path):
             engine = create_engine(db_path)
             with engine.connect() as connection:
@@ -109,27 +60,23 @@ async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depend
         vector_store = FAISS.load_local(
             temp_db_path + "/faiss", embedding, allow_dangerous_deserialization=True
         )
-        print(f"Loaded existing vector store with {len(vector_store.docstore._dict)} documents.")
+
     else:
         os.makedirs(temp_db_path, exist_ok=True)
         os.makedirs(temp_db_path + "/documents", exist_ok=True)
         vector_store = None
-        print("Created new vector store.")
 
     try:
         for file in files:
             temp_file_name = file.filename
             file_path = os.path.join(temp_db_path, "documents", temp_file_name)
-            print(f"Processing file: {temp_file_name}")
 
-            with open(file_path, "wb") as temp_file:
-                temp_file.write(await file.read())
+            async with aiofiles.open(file_path, "wb") as temp_file:
+                await temp_file.write(await file.read())
 
             pdf_loader = PyPDFLoader(file_path)
-            documents = pdf_loader.load()
-            print(f"Number of pages loaded from {temp_file_name}: {len(documents)}")
+            documents = await pdf_loader.aload()
 
-            # Add metadata
             for doc in documents:
                 doc.metadata['filename'] = temp_file_name
 
@@ -138,19 +85,15 @@ async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depend
                 chunk_overlap=200,
                 separators=["\n"]
             )
-            split_documents = text_splitter.split_documents(documents)
-            print(f"Number of split documents from {temp_file_name}: {len(split_documents)}")
+            
+            split_documents = await text_splitter.atransform_documents(documents)
 
             if vector_store is None:
-                vector_store = FAISS.from_documents(split_documents, embedding)
-                print(f"Vector store created with {len(split_documents)} documents from {temp_file_name}")
+                vector_store = await FAISS.afrom_documents(split_documents, embedding)
             else:
-                print(f"Vector store before adding {temp_file_name}: {len(vector_store.docstore._dict)} documents")
-                vector_store.add_documents(split_documents)
-                print(f"Vector store after adding {temp_file_name}: {len(vector_store.docstore._dict)} documents")
+                await vector_store.aadd_documents(split_documents)
 
         vector_store.save_local(temp_db_path + "/faiss")
-        print("Vector store saved.")
     except Exception as e:
         shutil.rmtree(path=temp_db_path, ignore_errors=True)
         raise HTTPException(
@@ -160,8 +103,6 @@ async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depend
 
     await redis.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
     return {"informationMessage": "PDF files uploaded and converted to database successfully."}
-
-
 
 @router.post(sql_query_end_point, response_model=AIResponse)
 async def sqlQuery(request: HumanRequest, session: tuple = Depends(redis.getSession)):
@@ -198,23 +139,3 @@ async def ragQuery(request: HumanRequest, session: tuple = Depends(redis.getSess
     await redis.resetSessionTimeout(session_id=session_id)
     
     return {"aiMessage": response}
-
-@router.delete(end_session_end_point, response_model=InformationResponse)
-async def endSession(response: Response, session: tuple = Depends(redis.getSession)):
-    session_id, session_data = session
-    db_path = session_data.get("db_path", "").replace("sqlite+aiosqlite:///", "")
-    
-    if db_path != '':
-        await redis.deleteSession(f"session:{session_id}")
-        
-        response.delete_cookie("session_id")
-
-        try:
-            if os.path.isdir(db_path):
-                await asyncio.to_thread(shutil.rmtree, path=db_path, ignore_errors=True)
-            else:
-                await asyncio.to_thread(os.remove, db_path)
-        finally:
-            await memory.deleteMemory(session_id=session_id)
-        
-    return {"informationMessage": "Session ended."}
