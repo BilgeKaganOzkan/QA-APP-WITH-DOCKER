@@ -1,0 +1,10 @@
+{
+    "configurations": [
+      {
+        "type": "chrome",
+        "request": "attach",
+        "name": "Attach to browser",
+        "port": 9222
+      }
+    ]
+  }

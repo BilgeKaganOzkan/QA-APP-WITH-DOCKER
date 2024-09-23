@@ -51,8 +51,18 @@ const Sidebar = ({ onPanelSelect }) => {
 
     return (
         <SidebarContainer isOpen={isOpen}>
-            <SidebarButton onClick={() => onPanelSelect('sql')}>Open SQL Query Panel</SidebarButton>
-            <SidebarButton onClick={() => onPanelSelect('rag')}>Open RAG Panel</SidebarButton>
+            <SidebarButton onClick={() => {
+                console.log('SQL Panel button clicked');
+                onPanelSelect('sql');
+            }}>
+                Open SQL Query Panel
+            </SidebarButton>
+            <SidebarButton onClick={() => {
+                console.log('RAG Panel button clicked');
+                onPanelSelect('rag');
+            }}>
+                Open RAG Panel
+            </SidebarButton>
         </SidebarContainer>
     );
 };

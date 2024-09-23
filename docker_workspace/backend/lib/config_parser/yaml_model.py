@@ -24,6 +24,7 @@ class LLMConfigs(BaseModel):
 class ConfigModel(BaseModel):
     session_timeout: int = Field(..., ge=1)
     db_max_table_limit: int = Field(..., ge=1, le=65535)
+    max_file_limit: int = Field(..., ge=1, le=65535)
     llm_configs: LLMConfigs
     end_points: EndPointsModel
     server: ServerModel

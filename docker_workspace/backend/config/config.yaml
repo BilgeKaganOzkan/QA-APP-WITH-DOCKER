@@ -1,5 +1,6 @@
 session_timeout: 3600 #Second
 db_max_table_limit: 5
+max_file_limit: 5
 llm_configs:
   sql_llm_model_name: gpt-4o-mini
   embedding_model_name: text-embedding-3-large

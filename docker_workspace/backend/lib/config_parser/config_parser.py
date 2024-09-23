@@ -22,6 +22,9 @@ class Configuration:
     def getDbMaxTableLimit(self) -> int:
         return int(self.config_data.db_max_table_limit)
 
+    def getMaxFileLimit(self) -> int:
+        return int(self.config_data.max_file_limit)
+
     def getLLMModelName(self) -> str:
         return str(self.config_data.llm_configs.sql_llm_model_name)
 

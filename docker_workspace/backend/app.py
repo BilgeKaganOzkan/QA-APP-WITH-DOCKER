@@ -19,12 +19,14 @@ async def lifespan(router: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+origins = ["http://localhost:3000"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-API-KEY"],
+    allow_headers=["*"],
 )
 
 app.add_middleware(LogRequestsMiddleware)
