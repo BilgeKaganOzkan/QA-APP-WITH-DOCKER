@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import (create_async_engine, AsyncSession)
 from lib.ai.memory.memory import CustomSQLMemory
 from lib.ai.llm.llm import LLM
 from lib.ai.llm.embedding import Embedding
-import asyncio
 
 class SqlQueryAgent:
     def __init__(self, llm: LLM, memory: CustomSQLMemory, db_path: str, max_iteration: int) -> None:
@@ -160,7 +159,8 @@ class RagQueryAgent:
                     Your Task:
 
                         Use the conversation history to decide whether you need to execute a new filter command or provide a final answer.
-                        Filter command must be a file name.
+                        Filter command must only be a file name.
+                        F'lter command must only be string, not list, not dict or not any other types.
                         Consider that the user query may be related to past results or previous user queries. \
                     If the query relates to prior interactions, take that context into account when generating your response.
                         The user may upload more files after a while and ask questions about all files or new files. So, pay attention to the file names. 
@@ -204,7 +204,7 @@ class RagQueryAgent:
             if "Filter Command:" in result:
                 filter_file = result.split("Filter Command:")[-1].strip()
                 self.retriever.search_kwargs["filter"] = {"filename": filter_file}
-                relevant_doc = await self.retriever.aget_relevant_documents(user_query)
+                relevant_doc = await self.retriever.ainvoke(user_query)
                 result = "\n\n".join([doc.page_content for doc in relevant_doc])
                 filter_file_result_pair.append({f"Filter Command {i}": filter_file, f"Filter Command Result {i}": result})
             else:

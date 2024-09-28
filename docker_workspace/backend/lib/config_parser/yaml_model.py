@@ -3,6 +3,8 @@ from pydantic import (BaseModel, Field)
 ip_pattern = r"^(localhost|(\d{1,3}\.){3}\d{1,3})$"
 
 class EndPointsModel(BaseModel):
+    signup: str
+    login: str
     start_session: str
     upload_csv: str
     upload_pdf: str

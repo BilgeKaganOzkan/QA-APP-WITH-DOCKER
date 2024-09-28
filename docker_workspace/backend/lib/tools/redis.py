@@ -4,10 +4,11 @@ from lib.ai.memory.memory import CustomMemoryDict
 import uuid, time, os, asyncio, shutil
 
 class RedisTool:
-    def __init__(self, memory: CustomMemoryDict, session_timeout: int, redis_ip: str, redis_port: int) -> None:
+    def __init__(self, memory: CustomMemoryDict, session_timeout: int, redis_ip: str, redis_port: int, session_list: list) -> None:
         self.redis = Redis(host=redis_ip, port=redis_port, decode_responses=True)
         self.memory = memory
         self.session_timeout = session_timeout
+        self.session_list = session_list
 
     async def createSession(self) -> str:
         session_id = str(uuid.uuid4())
@@ -61,6 +62,7 @@ class RedisTool:
                 await asyncio.to_thread(shutil.rmtree, path=temp_db_path, ignore_errors=True)
             else:
                 await asyncio.to_thread(os.remove, temp_db_path)
+            self.session_list.remove(session_id)
         except:
             pass
 

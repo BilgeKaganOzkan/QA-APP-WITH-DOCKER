@@ -6,6 +6,8 @@ llm_configs:
   embedding_model_name: text-embedding-3-large
   llm_max_iteration: 10
 end_points:
+  signup: /signup
+  login: /login
   start_session: /start_session
   upload_csv: /upload_csv
   upload_pdf: /upload_pdf

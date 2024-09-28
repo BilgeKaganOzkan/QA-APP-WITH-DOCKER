@@ -1,9 +1,68 @@
 from lib.routers.instance import *
 
-router = APIRouter()
+router = APIRouter()    
+
+async def ensureUserCollection(user_email: str, db: AsyncSession = Depends(getAsyncUserDB)):
+    user_identifier = user_email.replace("@", "_").replace(".", "_")
+    collection_name = f"user_{user_identifier}_vectors"
+    
+    query = text(f"SELECT 1 FROM information_schema.tables WHERE table_name = :table_name")
+    result = await db.execute(query, {'table_name': collection_name})
+
+    if result.fetchone() is None:
+        create_table_query = text(f"""
+            CREATE TABLE {collection_name} (
+                id SERIAL PRIMARY KEY,
+                metadata JSONB NOT NULL,
+                embedding_vector FLOAT8[]
+            )
+        """)
+        await db.execute(create_table_query)
+        await db.commit()
+        
+async def checkUserAuthentication(session: tuple = Depends(redis_tool.getSession)) -> bool:
+    session_id, _ = session 
+    if session_id in active_session_list:
+        return True
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication failed. Invalid session.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+@router.post(signup_end_point, response_model=InformationResponse)
+async def signup(user: UserCreate, db: AsyncSession = Depends(getAsyncUserDB)):
+    result = await db.execute(select(User).where(User.email == user.email))
+    db_user = result.scalars().first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="E-mail already registered")
+    hashed_password = getPasswordHash(user.password)
+    db_user = User(email=user.email, hashed_password=hashed_password)
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return {"informationMessage": "User successfully registered"}
+
+@router.post(login_end_point, response_model=InformationResponse)
+async def login(response: Response, form_data: UserLogin, db: AsyncSession = Depends(getAsyncUserDB)):
+    result = await db.execute(select(User).where(User.email == form_data.email))
+    user = result.scalars().first()
+    if not user or not verifyPassword(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    
+    ensureUserCollection(user.email, db)
+    
+    session_id = await redis_tool.createSession()
+    await memory.createMemory(session_id=session_id)
+    await redis_tool.updateSession(session_id=session_id, key="user_email", value=user.email)
+    response.set_cookie(key="session_id", value=session_id)
+    
+    active_session_list.append(session_id)
+    
+    return {"informationMessage": "Login successful"}
 
 @router.post(upload_csv_end_point, response_model=InformationResponse)
-async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depends(redis.getSession)):
+async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depends(redis_tool.getSession), auth: bool = Depends(checkUserAuthentication)):
     session_id, _ = session
 
     temp_db_path = f"sqlite+aiosqlite:///./.temp_databases/temporary_database_{session_id}.db"
@@ -13,7 +72,7 @@ async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depend
 
     async_session = sessionmaker(async_db_engine, class_=AsyncSession, expire_on_commit=False)
 
-    await redis.updateSession(session_id=session_id, key="progress", value="0")
+    await redis_tool.updateSession(session_id=session_id, key="progress", value="0")
 
     async with async_session() as session:
         async with session.begin():
@@ -22,13 +81,13 @@ async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depend
                 result = result.fetchall()
                 db_tables = [row[0] for row in result]
             except Exception as e:
-                await redis.updateSession(session_id=session_id, key="progress", value="-1")
+                await redis_tool.updateSession(session_id=session_id, key="progress", value="-1")
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to convert CSV file. Please check the CSV file and try again.")
 
     del async_db_engine
 
     if len(files) > db_max_table_limit - len(db_tables):
-        await redis.updateSession(session_id=session_id, key="progress", value="-1")
+        await redis_tool.updateSession(session_id=session_id, key="progress", value="-1")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"You reached max file limit {db_max_table_limit}")
 
     total_steps = len(files) * 2 + 1
@@ -56,21 +115,22 @@ async def uploadCSV(files: List[UploadFile] = File(...), session: tuple = Depend
 
         current_step += 1
         progress = int((current_step / total_steps) * 100)
-        await redis.updateSession(session_id=session_id, key="progress", value=str(progress))
+        await redis_tool.updateSession(session_id=session_id, key="progress", value=str(progress))
 
-    await redis.updateSession(session_id=session_id, key="progress", value="100")
-    await redis.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
+    await redis_tool.updateSession(session_id=session_id, key="progress", value="100")
+    await redis_tool.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
     
     return {"informationMessage": "CSV files uploaded and converted to database successfully."}
 
+
 @router.post(upload_pdf_end_point, response_model=InformationResponse)
-async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depends(redis.getSession)):
+async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depends(redis_tool.getSession), auth: bool = Depends(checkUserAuthentication)):
     session_id, _ = session
     temp_db_path = f"./.vector_stores/{session_id}"
     documents_dir = os.path.join(temp_db_path, "documents")
     faiss_dir = os.path.join(temp_db_path, "faiss")
     
-    await redis.updateSession(session_id=session_id, key="progress", value="0")
+    await redis_tool.updateSession(session_id=session_id, key="progress", value="0")
     
     try:
         if os.path.exists(faiss_dir):
@@ -91,7 +151,7 @@ async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depend
         new_file_count = len(files)
 
         if existing_file_count + new_file_count > max_file_limit:
-            await redis.updateSession(session_id=session_id, key="progress", value="-1")
+            await redis_tool.updateSession(session_id=session_id, key="progress", value="-1")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"You reached the maximum file limit of {max_file_limit}."
@@ -122,7 +182,7 @@ async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depend
 
             current_step += 1
             progress = int((current_step / total_steps) * 100)
-            await redis.updateSession(session_id=session_id, key="progress", value=str(progress))
+            await redis_tool.updateSession(session_id=session_id, key="progress", value=str(progress))
 
 
             pdf_loader = PyPDFLoader(file_path)
@@ -146,24 +206,23 @@ async def uploadPDF(files: List[UploadFile] = File(...), session: tuple = Depend
 
             current_step += 1
             progress = int((current_step / total_steps) * 100)
-            await redis.updateSession(session_id=session_id, key="progress", value=str(progress))
+            await redis_tool.updateSession(session_id=session_id, key="progress", value=str(progress))
 
         vector_store.save_local(faiss_dir)
-        await redis.updateSession(session_id=session_id, key="progress", value="100")
-
+        await redis_tool.updateSession(session_id=session_id, key="progress", value="100")
     except Exception as e:
         shutil.rmtree(path=temp_db_path, ignore_errors=True)
-        await redis.updateSession(session_id=session_id, key="progress", value="-1")
+        await redis_tool.updateSession(session_id=session_id, key="progress", value="-1")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to convert PDF file. Error: {str(e)}"
         )
 
-    await redis.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
+    await redis_tool.updateSession(session_id=session_id, key="db_path", value=temp_db_path)
     return {"informationMessage": "PDF files uploaded and converted to database successfully."}
 
 @router.post(sql_query_end_point, response_model=AIResponse)
-async def sqlQuery(request: HumanRequest, session: tuple = Depends(redis.getSession)):
+async def sqlQuery(request: HumanRequest, session: tuple = Depends(redis_tool.getSession), auth: bool = Depends(checkUserAuthentication)):
     data = request.model_dump()
     session_id, session_data = session
     
@@ -176,12 +235,12 @@ async def sqlQuery(request: HumanRequest, session: tuple = Depends(redis.getSess
     
     response = await sql_query_agent.execute(data["humanMessage"])
 
-    await redis.resetSessionTimeout(session_id=session_id)
+    await redis_tool.resetSessionTimeout(session_id=session_id)
     
     return {"aiMessage": response}
 
 @router.post(rag_query_end_point, response_model=AIResponse)
-async def ragQuery(request: HumanRequest, session: tuple = Depends(redis.getSession)):
+async def ragQuery(request: HumanRequest, session: tuple = Depends(redis_tool.getSession), auth: bool = Depends(checkUserAuthentication)):
     data = request.model_dump()
     session_id, session_data = session
     
@@ -194,6 +253,6 @@ async def ragQuery(request: HumanRequest, session: tuple = Depends(redis.getSess
     
     response = await rag_query_agent.execute(data["humanMessage"])
 
-    await redis.resetSessionTimeout(session_id=session_id)
+    await redis_tool.resetSessionTimeout(session_id=session_id)
     
     return {"aiMessage": response}

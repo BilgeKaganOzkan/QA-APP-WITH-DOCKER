@@ -2,10 +2,13 @@ from lib.routers.instance import *
 
 router = APIRouter()
 
-@router.get(start_session_end_point, response_model=InformationResponse)
-async def startSession(response: Response):
-    session_id = await redis.createSession()
-    await memory.createMemory(session_id=session_id)
-    response.set_cookie(key="session_id", value=session_id)
-    
-    return {"informationMessage": "Session started."}
+
+@router.get("/get_progress")
+async def getProgress(session: tuple = Depends(redis_tool.getSession)):
+    session_id, session_data = session
+    progress = session_data.get("progress")
+
+    if progress is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Progress not found.")
+
+    return JSONResponse(content={"progress": progress})
