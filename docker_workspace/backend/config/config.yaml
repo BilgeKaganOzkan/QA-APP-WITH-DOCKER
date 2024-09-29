@@ -15,7 +15,7 @@ end_points:
   rag_query: /rag_query
   end_session: /end_session
 server:
-  redis_ip: 'localhost'
+  redis_ip: 172.20.0.24
   redis_port: 6379
   app_ip: 0.0.0.0
   app_port: 8000

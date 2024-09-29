@@ -8,7 +8,7 @@ IMAGE_NAME="qa-app"
 
 # Define the Docker workspace path on the host and container
 HOST_WORKSPACE="$(pwd)/docker_workspace"
-CONTAINER_WORKSPACE="/home/gktrk/docker_workspace"
+CONTAINER_WORKSPACE="/home/gktrkQA/docker_workspace"
 
 # Check if the docker_workspace directory exists on the host, if not, create it
 if [ ! -d "$HOST_WORKSPACE" ]; then

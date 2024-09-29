@@ -50,14 +50,21 @@ async def login(response: Response, form_data: UserLogin, db: AsyncSession = Dep
     if not user or not verifyPassword(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     
-    ensureUserCollection(user.email, db)
+    #ensureUserCollection(user.email, db)
     
     session_id = await redis_tool.createSession()
     await memory.createMemory(session_id=session_id)
     await redis_tool.updateSession(session_id=session_id, key="user_email", value=user.email)
-    response.set_cookie(key="session_id", value=session_id)
     
     active_session_list.append(session_id)
+    
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        httponly=True,
+        samesite="None",
+        secure=True
+    )
     
     return {"informationMessage": "Login successful"}
 

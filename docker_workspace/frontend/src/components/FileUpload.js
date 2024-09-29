@@ -12,7 +12,7 @@ const FileUpload = ({ handleFileUpload, fileInputRef, accept }) => (
                 flexGrow: 1,
                 padding: '12px 15px',
                 marginRight: '10px',
-                backgroundColor: '#3a3a3a',
+                backgroundColor: '#f1f1f1',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',

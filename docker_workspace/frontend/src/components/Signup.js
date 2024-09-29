@@ -1,10 +1,10 @@
-// src/components/Signup.js
 import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import './Auth.css'; // Create this CSS file for styling
-import { SIGNUP_URL } from '../config/constants'; // Importing from constants.js
+import './Auth.css';
+import { SIGNUP_URL } from '../config/constants';
+import Cookies from 'js-cookie';
 
 const Signup = () => {
     const { setIsAuthenticated, setUser } = useContext(AuthContext);
@@ -16,11 +16,19 @@ const Signup = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    const clearCookies = () => {
+        const allCookies = Cookies.get();
+        Object.keys(allCookies).forEach(cookieName => {
+            Cookies.remove(cookieName);
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
         setSuccess('');
+        clearCookies();
 
         if (password !== confirmPassword) {
             setError('Passwords do not match.');
@@ -30,11 +38,11 @@ const Signup = () => {
 
         try {
             const response = await axios.post(SIGNUP_URL, { email, password }, { withCredentials: true });
-            if (response.status === 201) { // Adjust based on your backend response
+            if (response.status === 201) {
                 setIsAuthenticated(true);
-                setUser(response.data.user); // Adjust based on your backend response
+                setUser(response.data.user);
                 setSuccess('Signup successful! You are now logged in.');
-                navigate('/'); // Redirect to main app
+                navigate('/');
             }
         } catch (err) {
             if (err.response && err.response.data) {

@@ -1,6 +1,5 @@
-// src/components/MainApp.js
 import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
-import './MainApp.css'; // Create this CSS file for styling
+import './MainApp.css';
 import QueryInput from './QueryInput';
 import Sidebar from './Sidebar';
 import ChatBox from './ChatBox';
@@ -12,12 +11,14 @@ import {
     UPLOAD_PDF_URL,
     SQL_QUERY_URL,
     RAG_QUERY_URL,
+    CLEAR_SESSION_URL,
     END_SESSION_URL,
     GET_PROGRESS_URL
 } from '../config/constants';
+import Cookies from 'js-cookie';
 
 const MainApp = () => {
-    const { setIsAuthenticated, setUser } = useContext(AuthContext);
+    const { isAuthenticated, setIsAuthenticated, setUser } = useContext(AuthContext);
     const [messages, setMessages] = useState([]);
     const [selectedPanel, setSelectedPanel] = useState('sql');
     const fileInputRef = useRef(null);
@@ -25,11 +26,18 @@ const MainApp = () => {
     const isSessionInProgressRef = useRef(false);
     const isFirstLoadRef = useRef(true);
 
-    const [loading, setLoading] = useState(false);
-    const [progress, setProgress] = useState(0);
-
     const [selectedFiles, setSelectedFiles] = useState([]);
-    const [isUploading, setIsUploading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [uploading, setUploading] = useState(false);
+
+    const [thinking, setThinking] = useState(false);
+
+    const clearCookies = useCallback(() => {
+        const allCookies = Cookies.get();
+        Object.keys(allCookies).forEach(cookieName => {
+            Cookies.remove(cookieName);
+        });
+    }, []);
 
     const handleHttpError = useCallback((error, defaultMessage) => {
         const errorMessages = [];
@@ -60,15 +68,15 @@ const MainApp = () => {
         ]);
     }, []);
 
-    const endSession = useCallback(async () => {
+    const clearSession = useCallback(async () => {
         if (!window.sessionInitiated) {
             return;
         }
         try {
-            await axios.delete(END_SESSION_URL, { withCredentials: true });
+            await axios.delete(CLEAR_SESSION_URL, { withCredentials: true });
             window.sessionInitiated = false;
         } catch (error) {
-            handleHttpError(error, "Failed to end session");
+            handleHttpError(error, "Failed to clear session");
         }
     }, [handleHttpError]);
 
@@ -78,25 +86,22 @@ const MainApp = () => {
         }
         isSessionInProgressRef.current = true;
 
-        if (isFirstLoadRef.current) {
-            setMessages(prevMessages => [
-                ...prevMessages,
-                { type: 'system', text: 'Session starting...' }
-            ]);
-        }
+        setMessages(prevMessages => [
+            ...prevMessages,
+            { type: 'system', text: 'Session starting...' }
+        ]);
 
         try {
             const response = await axios.get(START_SESSION_URL, { withCredentials: true });
             if (response.status === 200) {
                 window.sessionInitiated = true;
 
-                if (isFirstLoadRef.current) {
-                    setMessages(prevMessages => [
-                        ...prevMessages,
-                        { type: 'system', text: 'Session started.' }
-                    ]);
-                    isFirstLoadRef.current = false;
-                }
+                setMessages(prevMessages => [
+                    ...prevMessages,
+                    { type: 'system', text: 'Session started.' }
+                ]);
+
+                isFirstLoadRef.current = false;
             }
         } catch (error) {
             handleHttpError(error, "Failed to start session");
@@ -107,41 +112,19 @@ const MainApp = () => {
 
     const switchPanel = useCallback(async (panel) => {
         if (panel === selectedPanel) {
-            // If the user clicks the same panel, do nothing
             return;
         }
 
-        await endSession();
+        await clearSession();
         setSelectedPanel(panel);
-        setSelectedFiles([]); // Clear selected files (boxes)
-        setMessages([]); // Clear conversation
+        setSelectedFiles([]);
+        setMessages([]);
         await startSession();
         setMessages(prevMessages => [
             { type: 'system', text: `Switched to ${panel === 'sql' ? 'SQL Query' : 'RAG'} Panel` },
             { type: 'system', text: 'New session started.' }
         ]);
-    }, [endSession, startSession, selectedPanel]);
-
-    useEffect(() => {
-        startSession();
-
-        const handleBeforeUnload = () => {
-            if (window.sessionInitiated) {
-                const url = END_SESSION_URL;
-                const data = new Blob([], { type: 'application/json' });
-                navigator.sendBeacon(url, data);
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
-        return () => {
-            if (window.sessionInitiated) {
-                endSession();
-            }
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [startSession, endSession]);
+    }, [clearSession, startSession, selectedPanel]);
 
     const handleFileSelection = (files) => {
         const errorMessages = [];
@@ -178,13 +161,12 @@ const MainApp = () => {
             return true;
         }
 
-        setIsUploading(true);
-        setLoading(true);
-        setProgress(0);
-
         const uploadUrl = selectedPanel === 'sql' ? UPLOAD_CSV_URL : UPLOAD_PDF_URL;
 
         try {
+            setUploading(true);
+            setProgress(0);
+
             let polling = true;
 
             const pollProgress = async () => {
@@ -192,6 +174,7 @@ const MainApp = () => {
                     const response = await axios.get(GET_PROGRESS_URL, { withCredentials: true });
                     const progressValue = parseInt(response.data.progress);
                     console.log("Progress value received:", progressValue);
+
                     setProgress(progressValue);
 
                     if (progressValue >= 100 || progressValue === -1) {
@@ -228,45 +211,54 @@ const MainApp = () => {
 
             startPolling();
 
-            await uploadPromise;
+            const uploadResponse = await uploadPromise;
 
+            if (uploadResponse.data.informationMessage) {
+                setMessages(prevMessages => [
+                    ...prevMessages,
+                    { type: 'system', text: uploadResponse.data.informationMessage }
+                ]);
+            }
+
+            setSelectedFiles([]);
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
 
-            setSelectedFiles([]);
             return true;
         } catch (error) {
             handleHttpError(error, `Failed to upload ${selectedPanel === 'sql' ? 'CSV' : 'PDF'} files`);
             return false;
         } finally {
-            setLoading(false);
+            setUploading(false);
             setProgress(0);
-            setIsUploading(false);
         }
     };
 
     const handleQuerySubmit = async (query) => {
         setMessages(prevMessages => [...prevMessages, { type: 'user', text: query }]);
-
+        setThinking(true);
+    
         try {
             const queryUrl = selectedPanel === 'sql' ? SQL_QUERY_URL : RAG_QUERY_URL;
-
+    
             const payload = { humanMessage: query };
-
+    
             const response = await axios.post(queryUrl, payload, {
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 withCredentials: true
             });
-
+    
             setMessages(prevMessages => [...prevMessages, { type: 'ai', text: response.data.aiMessage }]);
+            setThinking(false);
         } catch (error) {
             handleHttpError(error, "Failed to process query");
+            setThinking(false);
         }
     };
-
+    
     const handleSend = async (query) => {
         if (selectedFiles.length > 0) {
             const uploadSuccess = await handleFileUpload();
@@ -286,10 +278,42 @@ const MainApp = () => {
             await axios.delete(END_SESSION_URL, { withCredentials: true });
             setIsAuthenticated(false);
             setUser(null);
+            clearCookies();
         } catch (error) {
             handleHttpError(error, "Failed to logout");
         }
     };
+
+    useEffect(() => {
+        sessionStorage.setItem('isPageRefresh', 'true');
+    
+        const handleBeforeUnload = (event) => {
+            const isPageRefresh = sessionStorage.getItem('isPageRefresh') === 'true';
+    
+            if (!isPageRefresh && isAuthenticated) {
+                const url = END_SESSION_URL;
+                const data = new Blob([], { type: 'application/json' });
+    
+                navigator.sendBeacon(url, data);
+    
+                localStorage.removeItem('isAuthenticated');
+                Cookies.remove('session_id');
+            }
+        };
+    
+        window.addEventListener('beforeunload', handleBeforeUnload);
+    
+        return () => {
+            sessionStorage.setItem('isPageRefresh', 'false');
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [isAuthenticated]);
+    
+    useEffect(() => {
+        if (isAuthenticated) {
+            startSession();
+        }
+    }, [isAuthenticated, startSession]);
 
     return (
         <div className="container">
@@ -299,13 +323,31 @@ const MainApp = () => {
                 <button onClick={logout} className="logout-button">Logout</button>
             </header>
             <main className="main-content">
-                <ChatBox messages={messages} />
-                {loading && (
-                    <div className="progress-container">
-                        <p>Processing files... {progress}%</p>
-                        <progress value={progress} max="100" />
-                    </div>
-                )}
+            <ChatBox
+                messages={[
+                    ...messages,
+                    ...(thinking
+                        ? [
+                            {
+                                type: 'ai',
+                                text: (
+                                    <div className="thinking-message">
+                                        <span className="thinking-text">Thinking</span>
+                                        <span className="dots"></span>
+                                    </div>
+                                ),
+                            },
+                        ]
+                        : []),
+                ]}
+            />
+            {uploading && (
+                <div className="progress-container">
+                    <p>Uploading files... {progress}%</p>
+                    <progress value={progress} max="100"></progress>
+                </div>
+            )}
+            
             </main>
             <QueryInput
                 handleSend={handleSend}
@@ -314,14 +356,16 @@ const MainApp = () => {
                 selectedFiles={selectedFiles}
                 fileInputRef={fileInputRef}
                 accept={selectedPanel === 'sql' ? '.csv' : '.pdf'}
-                isUploading={isUploading}
                 selectedPanel={selectedPanel}
+                disabled={thinking || uploading}
             />
+            
             <footer>
                 <p>Author: Bilge Kagan Ozkan</p>
             </footer>
         </div>
-    );
+    );    
+    
 };
 
 export default MainApp;

@@ -1,4 +1,3 @@
-// QueryInput.js
 import React, { useState } from 'react';
 import './QueryInput.css';
 
@@ -10,14 +9,17 @@ const QueryInput = ({
     fileInputRef,
     accept,
     isUploading,
-    selectedPanel
+    selectedPanel,
+    disabled
 }) => {
     const [query, setQuery] = useState("");
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        handleSend(query);
-        setQuery("");
+        if (!disabled) {
+            handleSend(query);
+            setQuery("");
+        }
     };
 
     const handleFileChange = (e) => {
@@ -57,7 +59,7 @@ const QueryInput = ({
                                 type="button"
                                 className="remove-file-button"
                                 onClick={() => removeSelectedFile(index)}
-                                disabled={isUploading}
+                                disabled={isUploading || disabled}
                             >
                                 &times;
                             </button>
@@ -72,7 +74,7 @@ const QueryInput = ({
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Enter your query here"
                     className="query-input"
-                    disabled={isUploading}
+                    disabled={isUploading || disabled}
                 />
                 <div className="input-actions">
                     <label htmlFor="file-input" className="upload-icon">
@@ -89,12 +91,12 @@ const QueryInput = ({
                         ref={fileInputRef}
                         style={{ display: 'none' }}
                         onChange={handleFileChange}
-                        disabled={isUploading}
+                        disabled={isUploading || disabled}
                     />
                     <button
                         type="submit"
                         className="submit-button"
-                        disabled={isUploading}
+                        disabled={isUploading || disabled}
                     >
                         Send
                     </button>

@@ -1,27 +1,29 @@
-// src/context/AuthContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { START_SESSION_URL } from '../config/constants'; // Importing from constants.js
+import { CHECK_SESSION_URL } from '../config/constants';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        return localStorage.getItem('isAuthenticated') === 'true';
+    });
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check if the user is already authenticated by making a request to the server
         const checkAuth = async () => {
             try {
-                const response = await axios.get(START_SESSION_URL, { withCredentials: true });
+                const response = await axios.get(CHECK_SESSION_URL, { withCredentials: true });
                 if (response.status === 200) {
                     setIsAuthenticated(true);
-                    setUser(response.data.user); // Adjust based on your backend response
+                    setUser(response.data.user);
+                    localStorage.setItem('isAuthenticated', 'true');
                 }
             } catch (error) {
                 setIsAuthenticated(false);
                 setUser(null);
+                localStorage.removeItem('isAuthenticated');
             } finally {
                 setLoading(false);
             }

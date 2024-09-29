@@ -1,4 +1,3 @@
-// ChatBox.js
 import React, { useEffect, useRef } from 'react';
 import './ChatBox.css';
 

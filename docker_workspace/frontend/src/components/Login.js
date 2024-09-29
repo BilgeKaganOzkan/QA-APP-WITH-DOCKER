@@ -1,10 +1,9 @@
-// src/components/Login.js
 import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import './Auth.css'; // Create this CSS file for styling
-import { LOGIN_URL } from '../config/constants'; // Importing from constants.js
+import './Auth.css';
+import { LOGIN_URL } from '../config/constants';
 
 const Login = () => {
     const { setIsAuthenticated, setUser } = useContext(AuthContext);
@@ -20,13 +19,20 @@ const Login = () => {
         setError('');
 
         try {
-            const response = await axios.post(LOGIN_URL, { email, password }, { withCredentials: true });
+            const response = await axios.post(LOGIN_URL, {
+                email,
+                password
+            }, {
+                withCredentials: true
+            });
             if (response.status === 200) {
+                console.log(response.data.informationMessage); 
                 setIsAuthenticated(true);
-                setUser(response.data.user); // Adjust based on your backend response
-                navigate('/'); // Redirect to main app
+                setUser(response.data.user);
+                navigate('/');
             }
         } catch (err) {
+            console.error('Login error:', err);
             if (err.response && err.response.data) {
                 setError(err.response.data.detail || 'Login failed.');
             } else {

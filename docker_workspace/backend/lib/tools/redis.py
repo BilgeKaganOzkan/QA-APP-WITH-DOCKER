@@ -5,7 +5,9 @@ import uuid, time, os, asyncio, shutil
 
 class RedisTool:
     def __init__(self, memory: CustomMemoryDict, session_timeout: int, redis_ip: str, redis_port: int, session_list: list) -> None:
-        self.redis = Redis(host=redis_ip, port=redis_port, decode_responses=True)
+        self.redis = Redis(host=redis_ip, port=redis_port, decode_responses=True, db=0)
+        print(redis_ip)
+        print(type(redis_ip))
         self.memory = memory
         self.session_timeout = session_timeout
         self.session_list = session_list
@@ -21,7 +23,7 @@ class RedisTool:
         await self.resetSessionTimeout(session_id=session_id)
         return session_id
 
-    async def getSession(self, session_id: str = Cookie(None)) -> tuple:        
+    async def getSession(self, session_id: str = Cookie(None)) -> tuple:
         session_key = f"session:{session_id}"
         session_data = await self.redis.hgetall(session_key)
         

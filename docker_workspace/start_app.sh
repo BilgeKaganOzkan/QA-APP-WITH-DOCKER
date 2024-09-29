@@ -16,9 +16,9 @@ NPM_VERSION=18.19.1
 SESSION_NAME="LangChainSQLApp"
 BACKEND_WINDOW="backend"
 FRONTEND_WINDOW="frontend"
-
-SET_ENV_BACKEND="cd $BACKEND_PATH; source $VENV_BACKEND_PATH/bin/activate; redis-cli CONFIG SET notify-keyspace-events Ex"
-SET_ENV_FRONTEND="cd $FRONTEND_PATH; nvm use $NPM_VERSION"
+ #redis-cli CONFIG SET notify-keyspace-events Ex"
+SET_ENV_BACKEND="cd $BACKEND_PATH; source $VENV_BACKEND_PATH/bin/activate;"
+SET_ENV_FRONTEND="cd $FRONTEND_PATH; nvm use $NPM_VERSION;"
 
 
 ensure_node_version() {
@@ -100,17 +100,17 @@ npm run build
 
 cd "$DIRECTORY"
 
-redis-server &
+#redis-server &
 
 tmux new-session -d -s $SESSION_NAME -n $BACKEND_WINDOW
-tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "$SET_ENV_BACKEND" "Enter"
-tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "while true; do python -B app.py; done" "Enter"
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "$SET_ENV_BACKEND"
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "; while true; do python -B app.py; done"
 
 sleep 3
 
 tmux new-window -t $SESSION_NAME -n $FRONTEND_WINDOW
-tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "$SET_ENV_FRONTEND" "Enter"
-tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "while true; do npm start; done" "Enter"
+tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "$SET_ENV_FRONTEND"
+tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "; while true; do npm start; done"
 
 sleep 5
 

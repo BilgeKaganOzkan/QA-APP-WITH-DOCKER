@@ -1,11 +1,19 @@
-/* ChatBox.css */
-
 .chat-box {
     flex-grow: 1;
     padding: 20px;
-    background-color: #2e2e2e;
+    background-color: #f1f1f1;
     overflow-y: auto;
+    max-height: calc(100vh - 160px);
     color: white;
+}
+
+.chat-box::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-box::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 4px;
 }
 
 .chat-message {
@@ -75,13 +83,4 @@
     order: 1;
     margin-right: 10px;
     margin-left: 0;
-}
-
-.chat-box::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-box::-webkit-scrollbar-thumb {
-    background-color: #555;
-    border-radius: 4px;
 }

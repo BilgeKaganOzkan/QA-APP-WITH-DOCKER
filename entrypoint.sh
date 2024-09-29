@@ -4,7 +4,7 @@
 set -e
 
 # Define paths
-CONTAINER_WORKSPACE="/home/gktrk/docker_workspace"
+CONTAINER_WORKSPACE="/home/gktrkQA/docker_workspace"
 START_SCRIPT="start_app.sh"
 
 # Navigate to the project directory

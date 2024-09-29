@@ -23,6 +23,7 @@ RUN apt update \
         libbz2-dev \
         libreadline-dev \
         libsqlite3-dev \
+        libpq-dev \
         llvm \
         libncurses5-dev \
         libncursesw5-dev \
@@ -49,31 +50,32 @@ RUN apt update \
         python3 \
         python3-pip \
         nodejs \
+        postgresql-client \
     && apt clean \
     && rm -rf /var/lib/apt/lists/*
 
 RUN id -u ubuntu &>/dev/null && userdel -r ubuntu || echo "User 'ubuntu' does not exist."
 
 # Add a user and set password
-RUN useradd -ms /bin/bash -g root -G sudo gktrk \
-    && echo 'gktrk:qaapp' | chpasswd
+RUN useradd -ms /bin/bash -g root -G sudo gktrkQA \
+    && echo 'gktrkQA:qaapp' | chpasswd
 
 # Install and configure Redis
-RUN apt update \
-    && apt install -y redis-server \
-    && sed -i 's/^# notify-keyspace-events ""/notify-keyspace-events Ex/' /etc/redis/redis.conf \
-    && apt clean \
-    && rm -rf /var/lib/apt/lists/*
+#RUN apt update \
+#    && apt install -y redis-server \
+#    && sed -i 's/^# notify-keyspace-events ""/notify-keyspace-events Ex/' /etc/redis/redis.conf \
+#    && apt clean \
+#    && rm -rf /var/lib/apt/lists/*
 
 # Copy entrypoint files
-COPY entrypoint.sh /home/gktrk/entrypoint.sh
-RUN chmod +x /home/gktrk/entrypoint.sh
+COPY entrypoint.sh /home/gktrkQA/entrypoint.sh
+RUN chmod +x /home/gktrkQA/entrypoint.sh
 
 # Switch to non-root user
-USER gktrk
+USER gktrkQA
 
 # Set up environment variables
-ENV HOME="/home/gktrk"
+ENV HOME="/home/gktrkQA"
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
 ENV PYTHON_VERSION="3.11.9"
@@ -104,15 +106,15 @@ RUN bash -lc "source $NVM_DIR/nvm.sh && nvm install $NPM_VERSION"
 
 # Switch to root user and copy entrypoint.sh
 USER root
-ENTRYPOINT ["/home/gktrk/entrypoint.sh"]
+ENTRYPOINT ["/home/gktrkQA/entrypoint.sh"]
 
 # Create docker_workspace
-RUN mkdir -p /home/gktrk/docker_workspace && \
-    chown -R gktrk:root /home/gktrk/docker_workspace && \
-    chmod -R 755 /home/gktrk/docker_workspace
+RUN mkdir -p /home/gktrkQA/docker_workspace && \
+    chown -R gktrkQA:root /home/gktrkQA/docker_workspace && \
+    chmod -R 755 /home/gktrkQA/docker_workspace
 
 # Switch to non-root user
-USER gktrk
+USER gktrkQA
 
 # Set working directory
-WORKDIR /home/gktrk/docker_workspace
+WORKDIR /home/gktrkQA/docker_workspace
