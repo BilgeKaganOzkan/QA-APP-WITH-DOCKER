@@ -9,13 +9,30 @@ end_points:
   signup: /signup
   login: /login
   start_session: /start_session
+  check_session: /check_session
   upload_csv: /upload_csv
   upload_pdf: /upload_pdf
+  progress: /get_progress
   sql_query: /sql_query
   rag_query: /rag_query
+  clear_session: /clear_session
   end_session: /end_session
 server:
+  sync_database_url: postgresql+psycopg2://qa:qa@172.20.0.23:5432
+  async_database_url: postgresql+asyncpg://qa:qa@172.20.0.23:5432
+  user_database_name: user_db
   redis_ip: 172.20.0.24
   redis_port: 6379
   app_ip: 0.0.0.0
   app_port: 8000
+paths:
+  log_file_dir: "./.log/fastapi_app.log"
+  check_list: 
+    - ./.temp_databases
+    - ./.vector_stores
+    - ./.log
+  origin_list:
+    - "http://localhost:3000"
+    - "http://localhost:8000"
+    - "http://172.20.0.22:3000"
+    - "http://172.20.0.22:8000"

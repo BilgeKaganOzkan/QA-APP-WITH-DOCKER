@@ -10,14 +10,14 @@ from lib.ai.llm.llm import LLM
 from lib.ai.llm.embedding import Embedding
 
 class SqlQueryAgent:
-    def __init__(self, llm: LLM, memory: CustomSQLMemory, db_path: str, max_iteration: int) -> None:
+    def __init__(self, llm: LLM, memory: CustomSQLMemory, temp_database_path: str, max_iteration: int) -> None:
         self.memory = memory
-        self.db_path = db_path
+        self.temp_database_path = temp_database_path
         self.max_iteration = max_iteration
 
         prompt_template = PromptTemplate(
             input_variables=["table_names", "column_names", "input", "history", "command_result_pair", "iteration", "max_iteration"],
-            template=("""You are a data scientist with access to a database created from one or more CSV files. \
+            template=("""You are a data scientist with access to a postgresql database created from one or more CSV files. \
                       Each table in the database corresponds to a CSV file and Each table in the database is a dataset. Also, you are working in iterations.
 
                         Database Information:
@@ -73,7 +73,7 @@ class SqlQueryAgent:
         command_result_pair = []
         column_names = None
 
-        table_names = await self.runSQLQuery("SELECT name FROM sqlite_master WHERE type='table';")
+        table_names = await self.runSQLQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
 
         if table_names:
             for i in table_names:
@@ -106,7 +106,7 @@ class SqlQueryAgent:
         return "I couldn't generate an answer according to your question. Please change your question and try again."
     
     async def runSQLQuery(self, sqlQuery: str) -> str:
-        async_db_engine = create_async_engine(self.db_path, echo=False)
+        async_db_engine = create_async_engine(self.temp_database_path, echo=False)
         async_session = sessionmaker(async_db_engine, class_=AsyncSession, expire_on_commit=False)
         async with async_session() as session:
             try:
@@ -128,11 +128,11 @@ class SqlQueryAgent:
 
 
 class RagQueryAgent:
-    def __init__(self, llm: LLM, memory: CustomSQLMemory, db_path: str, embeddings: Embedding, max_iteration: int) -> None:
+    def __init__(self, llm: LLM, memory: CustomSQLMemory, vector_store_path: str, embeddings: Embedding, max_iteration: int) -> None:
         self.max_iteration = max_iteration
         self.memory = memory
         
-        self.vector_store = FAISS.load_local(db_path + "/faiss", embeddings, allow_dangerous_deserialization=True)
+        self.vector_store = FAISS.load_local(vector_store_path + "/faiss", embeddings, allow_dangerous_deserialization=True)
         self.retriever = self.vector_store.as_retriever(search_kwargs={"k": 10})
             
         prompt_template = PromptTemplate(

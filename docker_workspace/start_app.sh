@@ -17,8 +17,8 @@ SESSION_NAME="LangChainSQLApp"
 BACKEND_WINDOW="backend"
 FRONTEND_WINDOW="frontend"
  #redis-cli CONFIG SET notify-keyspace-events Ex"
-SET_ENV_BACKEND="cd $BACKEND_PATH; source $VENV_BACKEND_PATH/bin/activate;"
-SET_ENV_FRONTEND="cd $FRONTEND_PATH; nvm use $NPM_VERSION;"
+SET_ENV_BACKEND="cd $BACKEND_PATH && python -m venv ./.venv && pip install -r requirements.txt && source $VENV_BACKEND_PATH/bin/activate;"
+SET_ENV_FRONTEND="cd $FRONTEND_PATH && nvm use $NPM_VERSION && npm install;"
 
 
 ensure_node_version() {
@@ -104,13 +104,15 @@ cd "$DIRECTORY"
 
 tmux new-session -d -s $SESSION_NAME -n $BACKEND_WINDOW
 tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "$SET_ENV_BACKEND"
-tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "; while true; do python -B app.py; done"
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "; while true; do python -B app.py; done" ENTER
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW ENTER
 
-sleep 3
+sleep 15
 
 tmux new-window -t $SESSION_NAME -n $FRONTEND_WINDOW
 tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "$SET_ENV_FRONTEND"
 tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "; while true; do npm start; done"
+tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW ENTER
 
 sleep 5
 

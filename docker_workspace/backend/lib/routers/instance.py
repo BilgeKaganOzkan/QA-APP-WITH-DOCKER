@@ -1,53 +1,45 @@
-from fastapi import (APIRouter, Depends, HTTPException, status, Response, UploadFile, File)
-from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import (create_async_engine, AsyncSession)
-from sqlalchemy import (text, create_engine,select)
-from sqlalchemy.orm import sessionmaker
-from typing import List
 from lib.config_parser.config_parser import Configuration
 from lib.tools.redis import RedisTool
-from lib.ai.agents.agents import SqlQueryAgent, RagQueryAgent
 from lib.ai.memory.memory import CustomMemoryDict
 from lib.ai.llm.llm import LLM
 from lib.ai.llm.embedding import Embedding
-from lib.models.post_models import (HumanRequest, InformationResponse, AIResponse)
-from lib.database.models.user_model import User
-from lib.database.config.configuration import getAsyncUserDB
-from lib.database.schemas.database_schema import (UserCreate, UserLogin)
-from lib.database.securities.security import (getPasswordHash, verifyPassword)
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores.faiss import FAISS
-from langchain_community.docstore.in_memory import InMemoryDocstore
-import pandas as pd
-import os, asyncio, shutil, aiofiles
 
-config = Configuration()
+class Instance:
+    def __init__(self) -> None:
+        self.config = Configuration()
 
-llm_model_name = config.getLLMModelName()
-embedding_model_name = config.getEmbeddingLLMModelName()
-llm_max_iteration = config.getLLMMaxIteration()
-signup_end_point = config.getSignUpEndpoint()
-login_end_point = config.getLoginEndpoint()
-start_session_end_point = config.getStartSessionEndpoint()
-upload_csv_end_point = config.getUploadCsvEndpoint()
-upload_pdf_end_point = config.getUploadPdfEndpoint()
-sql_query_end_point = config.getSqlQueryEndpoint()
-rag_query_end_point = config.getRagQueryEndpoint()
-end_session_end_point = config.getEndSessionEndpoint()
-session_timeout = config.getSessionTimeout()
-db_max_table_limit = config.getDbMaxTableLimit()
-max_file_limit = config.getMaxFileLimit()
-redis_ip = config.getRedisIP()
-redis_port = config.getRedisPort()
-app_ip = config.getAppIP()
-app_port = config.getAppPort()
+        self.llm_model_name = self.config.getLLMModelName()
+        self.embedding_model_name = self.config.getEmbeddingLLMModelName()
+        self.llm_max_iteration = self.config.getLLMMaxIteration()
+        self.signup_end_point = self.config.getSignUpEndpoint()
+        self.login_end_point = self.config.getLoginEndpoint()
+        self.start_session_end_point = self.config.getStartSessionEndpoint()
+        self.check_session_end_point = self.config.getCheckSessionEndpoint()
+        self.upload_csv_end_point = self.config.getUploadCsvEndpoint()
+        self.upload_pdf_end_point = self.config.getUploadPdfEndpoint()
+        self.progress_end_point = self.config.getProgressEndpoint()
+        self.sql_query_end_point = self.config.getSqlQueryEndpoint()
+        self.rag_query_end_point = self.config.getRagQueryEndpoint()
+        self.clear_session_end_point = self.config.getClearSessionEndpoint()
+        self.end_session_end_point = self.config.getEndSessionEndpoint()
+        self.session_timeout = self.config.getSessionTimeout()
+        self.db_max_table_limit = self.config.getDbMaxTableLimit()
+        self.max_file_limit = self.config.getMaxFileLimit()
+        self.sync_database_url = self.config.getSyncDatabaseUrl()
+        self.async_database_url = self.config.getAsyncDatabaseUrl()
+        self.user_database_name= self.config.getUserDatabaseName()
+        self.redis_ip = self.config.getRedisIP()
+        self.redis_port = self.config.getRedisPort()
+        self.app_ip = self.config.getAppIP()
+        self.app_port = self.config.getAppPort()
+        self.log_file_path = self.config.getLogFilePath()
+        self.check_list = self.config.getCheckList()
+        self.origin_list = self.config.getOriginList()
 
-del config
+        self.active_session_list = []
+        self.memory = CustomMemoryDict()
+        self.llm = LLM(llm_model_name=self.llm_model_name)
+        self.embedding = Embedding(model_name=self.embedding_model_name).get_embedding()
+        self.redis_tool = RedisTool(memory=self.memory, session_timeout=self.session_timeout, redis_ip=self.redis_ip, redis_port=self.redis_port, session_list=self.active_session_list)
 
-active_session_list = []
-
-memory = CustomMemoryDict()
-llm = LLM(llm_model_name=llm_model_name)
-embedding = Embedding(model_name=embedding_model_name).get_embedding()
-redis_tool = RedisTool(memory=memory, session_timeout=session_timeout, redis_ip=redis_ip, redis_port=redis_port, session_list=active_session_list)
+instance = Instance()

@@ -279,6 +279,9 @@ const MainApp = () => {
             setIsAuthenticated(false);
             setUser(null);
             clearCookies();
+            sessionStorage.removeItem('isPageRefresh');
+            window.sessionInitiated = false;
+            setMessages([]);
         } catch (error) {
             handleHttpError(error, "Failed to logout");
         }

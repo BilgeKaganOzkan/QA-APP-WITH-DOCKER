@@ -1,8 +1,8 @@
 from fastapi import FastAPI
-import lib.tools.files_checker
 from fastapi.middleware.cors import CORSMiddleware
+from lib.tools.files_checker import filesChecker
 from lib.middleware.middleware import LogRequestsMiddleware
-from lib.routers.instance import (redis_tool, app_ip, app_port)
+from lib.routers.instance import instance
 from lib.routers.get import router as get_router
 from lib.routers.post import router as post_router
 from lib.routers.delete import router as delete_router
@@ -11,26 +11,22 @@ import asyncio
 
 @asynccontextmanager
 async def lifespan(router: FastAPI):
-    task = asyncio.create_task(redis_tool._listenForExpirations())
+    task = asyncio.create_task(instance.redis_tool._listenForExpirations())
     yield
 
     task.cancel()
     await task
 
-app = FastAPI(lifespan=lifespan)
+del filesChecker
 
-origins = [
-    "http://localhost",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://172.20.0.22",
-    "http://172.20.0.22:3000",
-    "http://172.20.0.22:8000"
-]
+app_ip = instance.app_ip
+app_port = instance.app_port
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=instance.origin_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
