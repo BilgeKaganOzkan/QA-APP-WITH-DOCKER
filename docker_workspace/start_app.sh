@@ -6,7 +6,6 @@ FRONTEND_PATH="$DIRECTORY/frontend"
 
 VENV_BACKEND_PATH="$BACKEND_PATH/.venv"
 LOG_BACKEND_PATH="$BACKEND_PATH/.log"
-TEMP_DB_BACKEND_PATH="$BACKEND_PATH/.temp_databases"
 ENV_BACKEND_PATH="$BACKEND_PATH/.env"
 NODE_MODULES_FRONTEND_PATH="$FRONTEND_PATH/node_modules"
 
@@ -16,7 +15,7 @@ NPM_VERSION=18.19.1
 SESSION_NAME="LangChainSQLApp"
 BACKEND_WINDOW="backend"
 FRONTEND_WINDOW="frontend"
- #redis-cli CONFIG SET notify-keyspace-events Ex"
+
 SET_ENV_BACKEND="cd $BACKEND_PATH && python -m venv ./.venv && pip install -r requirements.txt && source $VENV_BACKEND_PATH/bin/activate;"
 SET_ENV_FRONTEND="cd $FRONTEND_PATH && nvm use $NPM_VERSION && npm install;"
 
@@ -49,11 +48,6 @@ install_backend_dependencies() {
 if [ ! -d "$LOG_BACKEND_PATH" ]; then
     echo "Creating $LOG_BACKEND_PATH directory..."
     mkdir -p "$LOG_BACKEND_PATH"
-fi
-
-if [ ! -d "$TEMP_DB_BACKEND_PATH" ]; then
-    echo "Creating $TEMP_DB_BACKEND_PATH directory..."
-    mkdir -p "$TEMP_DB_BACKEND_PATH"
 fi
 
 export PYENV_ROOT="$HOME/.pyenv"
