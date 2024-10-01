@@ -101,7 +101,7 @@ tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "$SET_ENV_BACKEND"
 tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "; while true; do python -B app.py; done" ENTER
 tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW ENTER
 
-sleep 120
+sleep 150
 
 tmux new-window -t $SESSION_NAME -n $FRONTEND_WINDOW
 tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "$SET_ENV_FRONTEND"
