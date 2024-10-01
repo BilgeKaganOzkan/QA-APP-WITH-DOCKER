@@ -27,8 +27,7 @@ server:
   app_port: 8000
 paths:
   log_file_dir: "./.log/fastapi_app.log"
-  check_list: 
-    - ./.temp_databases
+  check_list:
     - ./.vector_stores
     - ./.log
   origin_list:

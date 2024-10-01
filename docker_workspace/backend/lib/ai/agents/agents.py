@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import (create_async_engine, AsyncSession)
 from lib.ai.memory.memory import CustomSQLMemory
 from lib.ai.llm.llm import LLM
 from lib.ai.llm.embedding import Embedding
+from lib.instances.instance import instance
 
 class SqlQueryAgent:
     def __init__(self, llm: LLM, memory: CustomSQLMemory, temp_database_path: str, max_iteration: int) -> None:
@@ -106,7 +107,7 @@ class SqlQueryAgent:
         return "I couldn't generate an answer according to your question. Please change your question and try again."
     
     async def runSQLQuery(self, sqlQuery: str) -> str:
-        async_db_engine = create_async_engine(self.temp_database_path, echo=False)
+        async_db_engine = create_async_engine(instance.async_database_url + "/" + self.temp_database_path, echo=False)
         async_session = sessionmaker(async_db_engine, class_=AsyncSession, expire_on_commit=False)
         async with async_session() as session:
             try:

@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from lib.routers.instance import instance
+from lib.instances.instance import instance
 
 database_user_database_name = instance.async_database_url + "/" + instance.user_database_name
 

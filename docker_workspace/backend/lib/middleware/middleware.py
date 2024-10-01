@@ -1,7 +1,7 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request, HTTPException, status
 from logging.handlers import RotatingFileHandler
-from lib.routers.instance import instance
+from lib.instances.instance import instance
 import logging
 
 logging.basicConfig(

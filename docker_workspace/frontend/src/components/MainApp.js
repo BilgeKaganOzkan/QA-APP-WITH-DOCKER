@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './MainApp.css';
 import QueryInput from './QueryInput';
 import Sidebar from './Sidebar';
@@ -31,6 +32,7 @@ const MainApp = () => {
     const [uploading, setUploading] = useState(false);
 
     const [thinking, setThinking] = useState(false);
+    const navigate = useNavigate();
 
     const clearCookies = useCallback(() => {
         const allCookies = Cookies.get();
@@ -42,7 +44,7 @@ const MainApp = () => {
     const handleHttpError = useCallback((error, defaultMessage) => {
         const errorMessages = [];
         console.error('Error response:', error.response?.data);
-
+    
         if (error.response) {
             errorMessages.push(`HTTP ${error.response.status}: ${error.response.statusText}`);
             if (error.response.data && typeof error.response.data === 'object') {
@@ -52,21 +54,33 @@ const MainApp = () => {
             } else if (error.response.data) {
                 errorMessages.push(error.response.data);
             }
+    
+            if (error.response.status === 401) {
+                alert("UNAUTHENTICATION SESSION: You must login again");
+                const data = new Blob([], { type: 'application/json' });
+                navigator.sendBeacon(END_SESSION_URL, data);
+                setIsAuthenticated(false);
+                setUser(null);
+                clearCookies();
+                setMessages([]);
+                navigate('/login');
+                return;
+            }
         } else if (error.request) {
             errorMessages.push("No response received from the server.");
         } else {
             errorMessages.push(`Error: ${error.message}`);
         }
-
+    
         if (errorMessages.length === 0) {
             errorMessages.push(defaultMessage);
         }
-
+    
         setMessages(prevMessages => [
             ...prevMessages,
             ...errorMessages.map(message => ({ type: 'system', text: message }))
         ]);
-    }, []);
+    }, [navigate]);
 
     const clearSession = useCallback(async () => {
         if (!window.sessionInitiated) {
@@ -99,6 +113,11 @@ const MainApp = () => {
                 setMessages(prevMessages => [
                     ...prevMessages,
                     { type: 'system', text: 'Session started.' }
+                ]);
+
+                setMessages(prevMessages => [
+                    ...prevMessages,
+                    { type: 'ai', text: response.data.informationMessage }
                 ]);
 
                 isFirstLoadRef.current = false;
@@ -202,7 +221,7 @@ const MainApp = () => {
                 formData.append("files", file);
             });
 
-            const uploadPromise = axios.post(uploadUrl, formData, {
+            const uploadPromise = axios.put(uploadUrl, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -279,7 +298,6 @@ const MainApp = () => {
             setIsAuthenticated(false);
             setUser(null);
             clearCookies();
-            sessionStorage.removeItem('isPageRefresh');
             window.sessionInitiated = false;
             setMessages([]);
         } catch (error) {
@@ -288,35 +306,39 @@ const MainApp = () => {
     };
 
     useEffect(() => {
-        sessionStorage.setItem('isPageRefresh', 'true');
-    
         const handleBeforeUnload = (event) => {
-            const isPageRefresh = sessionStorage.getItem('isPageRefresh') === 'true';
+            if (isAuthenticated) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        };
     
-            if (!isPageRefresh && isAuthenticated) {
-                const url = END_SESSION_URL;
+        const handleUnload = async () => {
+            if (isAuthenticated) {
                 const data = new Blob([], { type: 'application/json' });
-    
-                navigator.sendBeacon(url, data);
-    
-                localStorage.removeItem('isAuthenticated');
-                Cookies.remove('session_id');
+                navigator.sendBeacon(END_SESSION_URL, data);
+                setIsAuthenticated(false);
+                setUser(null);
+                clearCookies();
+                window.sessionInitiated = false;
+                setMessages([]);
             }
         };
     
         window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('unload', handleUnload);
     
         return () => {
-            sessionStorage.setItem('isPageRefresh', 'false');
             window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('unload', handleUnload);
         };
-    }, [isAuthenticated]);
-    
+    }, [isAuthenticated, logout]);
+
     useEffect(() => {
         if (isAuthenticated) {
             startSession();
         }
-    }, [isAuthenticated, startSession]);
+    }, [isAuthenticated, startSession]);    
 
     return (
         <div className="container">

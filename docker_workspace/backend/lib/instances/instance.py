@@ -36,10 +36,9 @@ class Instance:
         self.check_list = self.config.getCheckList()
         self.origin_list = self.config.getOriginList()
 
-        self.active_session_list = []
         self.memory = CustomMemoryDict()
         self.llm = LLM(llm_model_name=self.llm_model_name)
         self.embedding = Embedding(model_name=self.embedding_model_name).get_embedding()
-        self.redis_tool = RedisTool(memory=self.memory, session_timeout=self.session_timeout, redis_ip=self.redis_ip, redis_port=self.redis_port, session_list=self.active_session_list)
+        self.redis_tool = RedisTool(memory=self.memory, session_timeout=self.session_timeout, redis_ip=self.redis_ip, redis_port=self.redis_port)
 
 instance = Instance()

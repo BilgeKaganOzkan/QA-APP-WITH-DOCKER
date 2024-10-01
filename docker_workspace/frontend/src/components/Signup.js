@@ -38,12 +38,13 @@ const Signup = () => {
 
         try {
             const response = await axios.post(SIGNUP_URL, { email, password }, { withCredentials: true });
-            console.log(response.status)
+            console.log(response.status);
             if (response.status === 201) {
-                setIsAuthenticated(true);
-                setUser(response.data.user);
-                setSuccess('Signup successful! You are now logged in.');
-                navigate('/login');
+                setSuccess('Signup successful! Please log in.');
+                clearCookies();
+                setTimeout(() => {
+                    navigate('/login');
+                }, 700);
             }
         } catch (err) {
             if (err.response && err.response.data) {

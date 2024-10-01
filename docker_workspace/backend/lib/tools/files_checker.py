@@ -1,4 +1,4 @@
-from lib.routers.instance import instance
+from lib.instances.instance import instance
 import os
 
 class FilesChecker:
