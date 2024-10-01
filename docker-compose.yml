@@ -38,7 +38,7 @@ services:
       timeout: 5s
     restart: always
 
-  fastapi:
+  qa_app:
     build:
       context: .
       dockerfile: Dockerfile
