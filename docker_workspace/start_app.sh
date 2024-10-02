@@ -6,7 +6,6 @@ FRONTEND_PATH="$DIRECTORY/frontend"
 
 VENV_BACKEND_PATH="$BACKEND_PATH/.venv"
 LOG_BACKEND_PATH="$BACKEND_PATH/.log"
-ENV_BACKEND_PATH="$BACKEND_PATH/.env"
 NODE_MODULES_FRONTEND_PATH="$FRONTEND_PATH/node_modules"
 
 PYTHON_VERSION=3.11.9
@@ -67,17 +66,6 @@ if [ ! -d "$VENV_BACKEND_PATH" ]; then
 else
     echo ".venv already exists. Skipping virtual environment setup."
 fi
-echo "$ENV_BACKEND_PATH"
-if [ -e "$ENV_BACKEND_PATH" ]; then
-    echo ".env file already exists. Skipping to create env file."
-else
-    echo "Creating .env ile on $ENV_BACKEND_PATH..."
-    touch "$ENV_BACKEND_PATH"
-    echo -e "\n\n!!!!Please write your openai api key: "
-    read openai_api_key
-    echo -e "\n\n"
-    echo "OPENAI_API_KEY=$openai_api_key" >> $ENV_BACKEND_PATH
-fi
 
 ensure_node_version
 
@@ -94,18 +82,16 @@ npm run build
 
 cd "$DIRECTORY"
 
-#redis-server &
-
 tmux new-session -d -s $SESSION_NAME -n $BACKEND_WINDOW
 tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "$SET_ENV_BACKEND"
-tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "; while true; do python -B app.py; done" ENTER
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "&& while true; do python -B app.py; done"
 tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW ENTER
 
 sleep 150
 
 tmux new-window -t $SESSION_NAME -n $FRONTEND_WINDOW
 tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "$SET_ENV_FRONTEND"
-tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "; while true; do npm start; done"
+tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "&& npm run build && while true; do npm install -g serve && serve -s build; done"
 tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW ENTER
 
 sleep 5

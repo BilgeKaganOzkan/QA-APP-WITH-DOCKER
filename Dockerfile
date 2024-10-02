@@ -51,6 +51,7 @@ RUN apt update \
         python3-pip \
         nodejs \
         postgresql-client \
+        xsel \
     && apt clean \
     && rm -rf /var/lib/apt/lists/*
 

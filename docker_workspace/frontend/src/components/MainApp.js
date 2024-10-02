@@ -80,7 +80,7 @@ const MainApp = () => {
             ...prevMessages,
             ...errorMessages.map(message => ({ type: 'system', text: message }))
         ]);
-    }, [navigate]);
+    }, [navigate, setIsAuthenticated, setUser, clearCookies]);
 
     const clearSession = useCallback(async () => {
         if (!window.sessionInitiated) {
@@ -332,7 +332,7 @@ const MainApp = () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
             window.removeEventListener('unload', handleUnload);
         };
-    }, [isAuthenticated, logout]);
+    }, [isAuthenticated, navigate, setIsAuthenticated, setUser, clearCookies]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -344,7 +344,7 @@ const MainApp = () => {
         <div className="container">
             <Sidebar onPanelSelect={handlePanelSelect} />
             <header>
-                <h1>Q&A with {selectedPanel === 'sql' ? 'SQL and Tabular Data' : 'RAG'}</h1>
+                <h1>Q&A with {selectedPanel === 'sql' ? 'Tabular Data' : 'RAG'}</h1>
                 <button onClick={logout} className="logout-button">Logout</button>
             </header>
             <main className="main-content">

@@ -53,7 +53,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - /home/gktrk/Workspace/docker/docker_workspace:/home/gktrkQA/docker_workspace
+      - ./docker_workspace:/home/gktrkQA/docker_workspace
     networks:
       app-network:
         ipv4_address: 172.20.0.22
