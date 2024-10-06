@@ -3,7 +3,11 @@ uvicorn
 fastapi-users
 langchain
 langchain_openai
+langchain_community
 python-dotenv
 pandas
 redis
 aiosqlite
+aiofiles
+pypdf
+faiss-cpu

@@ -1,12 +1,16 @@
 session_timeout: 3600 #Second
 db_max_table_limit: 5
+max_file_limit: 5
 llm_configs:
-  llm_model_name: gpt-4o-mini
+  sql_llm_model_name: gpt-4o-mini
+  embedding_model_name: text-embedding-3-large
   llm_max_iteration: 10
 end_points:
   start_session: /start_session
   upload_csv: /upload_csv
-  query: /query
+  upload_pdf: /upload_pdf
+  sql_query: /sql_query
+  rag_query: /rag_query
   end_session: /end_session
 server:
   redis_ip: 'localhost'

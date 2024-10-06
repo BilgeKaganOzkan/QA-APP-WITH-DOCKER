@@ -1,7 +1,7 @@
 from fastapi import (HTTPException, status, Cookie)
 from redis.asyncio import Redis
 from lib.ai.memory.memory import CustomMemoryDict
-import uuid, time, os, asyncio
+import uuid, time, os, asyncio, shutil
 
 class RedisTool:
     def __init__(self, memory: CustomMemoryDict, session_timeout: int, redis_ip: str, redis_port: int) -> None:
@@ -57,7 +57,10 @@ class RedisTool:
         temp_db_path = f".temp_databases/temporary_database_{session_id}.db"
 
         try:
-            await asyncio.to_thread(os.remove, temp_db_path)
+            if os.path.isdir(temp_db_path):
+                await asyncio.to_thread(shutil.rmtree, path=temp_db_path, ignore_errors=True)
+            else:
+                await asyncio.to_thread(os.remove, temp_db_path)
         except:
             pass
 

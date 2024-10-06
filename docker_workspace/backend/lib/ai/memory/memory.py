@@ -2,21 +2,23 @@ class CustomSQLMemory:
     def __init__(self):
         self.memory_data = []
 
-    def saveContext(self, human_message: dict, sql_command_result_pair_dict: list, ai_message: dict) -> None:
+    def saveContext(self, human_message: dict, command_result_pair_dict: list, ai_message: dict, is_sql: bool = True) -> None:
         input_data = human_message.get("human_message", "")
+        command_result_pair_list = command_result_pair_dict.get("command_result_pair_list", [])
         output_data = ai_message.get("ai_message", "")
-        sql_command_result_pair_list = sql_command_result_pair_dict.get("sql_command_result_pair_list", [])
+        
+        context_dict = {
+                "human_message": input_data,
+                "command_result_pair_list": command_result_pair_list,
+                "ai_message": output_data
+            }
 
-        self.memory_data.append({
-            "human_message": input_data,
-            "sql_command_result_pair_list": sql_command_result_pair_list,
-            "ai_message": output_data
-        })
-
-    def getHistory(self) -> dict:        
+        self.memory_data.append(context_dict)
+            
+    def getHistory(self, is_sql: bool = True) -> dict:    
         history = "\n\n".join(
             [
-                f"HumanMessage: {item['human_message']}\nSQL Queries and their results list: {item['sql_command_result_pair_list']}\AIMessage: {item['ai_message']}"
+                f"HumanMessage: {item['human_message']}\nCommands and their results list: {item['command_result_pair_list']}\nAIMessage: {item['ai_message']}"
                 for item in self.memory_data
             ]
         )

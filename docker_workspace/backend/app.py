@@ -1,8 +1,12 @@
 from fastapi import FastAPI
+import lib.tools.files_checker 
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from lib.middleware.middleware import LogRequestsMiddleware
-from lib.routers.post import (router as post_router, redis, app_ip, app_port)
+from lib.routers.instance import (redis, app_ip, app_port)
+from lib.routers.get import router as get_router
+from lib.routers.post import router as post_router
+from lib.routers.delete import router as delete_router
+from contextlib import asynccontextmanager
 import asyncio
 
 @asynccontextmanager
@@ -15,17 +19,21 @@ async def lifespan(router: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+origins = ["http://localhost:3000"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-API-KEY"],
+    allow_headers=["*"],
 )
 
 app.add_middleware(LogRequestsMiddleware)
 
+app.include_router(get_router)
 app.include_router(post_router)
+app.include_router(delete_router)
 
 if __name__ == "__main__":
     import uvicorn
