@@ -1,0 +1,92 @@
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; 
+  overflow: hidden;
+}
+
+header {
+  background-color: #2e2e2e;
+  padding: 20px;
+  color: white;
+  text-align: center;
+  position: relative;
+}
+
+.logout-button {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  padding: 8px 16px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background-color: #c82333;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.progress-container {
+  margin-top: 20px;
+}
+
+footer {
+  background-color: #2e2e2e;
+  padding: 10px;
+  color: white;
+  text-align: center;
+}
+
+.thinking-message {
+  background-color: #e3e3e3;
+  border-radius: 0px;
+  padding: 6px;
+  margin: 1px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  max-width: 80%;
+}
+
+.dots::after {
+  content: '';
+  display: inline-block;
+  width: 0px;
+  height: 0px;
+  background-color: #333;
+  border-radius: 0%;
+  margin-left: 0px;
+  animation: dots 1.2s infinite steps(3, end);
+}
+
+@keyframes dots {
+  0%, 20% {
+      content: '';
+  }
+  40% {
+      content: '.';
+  }
+  60% {
+      content: '..';
+  }
+  80%, 100% {
+      content: '...';
+  }
+}

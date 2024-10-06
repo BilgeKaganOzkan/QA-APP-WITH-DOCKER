@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: qa
+      POSTGRES_PASSWORD: qa
+      POSTGRES_DB: user_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker_workspace/postgresql_initialize:/docker-entrypoint-initdb.d
+    networks:
+      app-network:
+        ipv4_address: 172.20.0.23
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qa -d user_db"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+    restart: always
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      app-network:
+        ipv4_address: 172.20.0.24
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+    restart: always
+
+  qa_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true 
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://qa:qa@postgres:5432/user_db
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./docker_workspace:/home/gktrkQA/docker_workspace
+    networks:
+      app-network:
+        ipv4_address: 172.20.0.22
+    restart: always
+
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  pg_data:
+    driver: local
+  redis_data:
+    driver: local

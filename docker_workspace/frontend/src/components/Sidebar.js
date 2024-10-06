@@ -1,70 +1,94 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 
 const SidebarContainer = styled.div`
-    position: fixed;
-    top: 0;
-    left: ${(props) => (props.isOpen ? '0' : '-200px')};
-    width: 200px;
-    height: 100%;
-    background-color: #333;
-    color: white;
-    padding: 20px;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    transition: left 0.3s ease;
+  position: fixed;
+  top: 0;
+  left: ${(props) => (props.isOpen ? '0' : '-220px')};
+  width: 220px;
+  height: 100%;
+  background-color: #20232a;
+  color: white;
+  padding-top: 60px;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+  transition: left 0.3s ease;
+  z-index: 1000;
 `;
 
 const SidebarButton = styled.button`
-    width: 100%;
-    margin: 10px 0;
-    padding: 10px;
-    background-color: #555;
-    color: white;
-    border: none;
-    cursor: pointer;
-    &:hover {
-        background-color: #777;
-    }
+  width: 180px;
+  margin: 10px;
+  padding: 12px;
+  background-color: #61dafb;
+  color: #20232a;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  &:hover {
+    background-color: #21a1f1;
+  }
+`;
+
+const ToggleButton = styled.div`
+  position: fixed;
+  top: 20px;
+  left: ${(props) => (props.isOpen ? '220px' : '20px')};
+  width: 30px;
+  height: 30px;
+  background-color: #61dafb;
+  color: #20232a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: left 0.3s ease;
+  z-index: 1100;
 `;
 
 const Sidebar = ({ onPanelSelect }) => {
-    const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const sidebarRef = useRef(null);
 
-    useEffect(() => {
-        const handleMouseMove = (event) => {
-            if (event.clientX < 50) {
-                setIsOpen(true);
-            } else if (event.clientX > 200) {
-                setIsOpen(false);
-            }
-        };
+  const handleClickOutside = (event) => {
+    if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
+      setIsOpen(false);
+    }
+  };
 
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-        };
-    }, []);
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
-    return (
-        <SidebarContainer isOpen={isOpen}>
-            <SidebarButton onClick={() => {
-                console.log('SQL Panel button clicked');
-                onPanelSelect('sql');
-            }}>
-                Open SQL Query Panel
-            </SidebarButton>
-            <SidebarButton onClick={() => {
-                console.log('RAG Panel button clicked');
-                onPanelSelect('rag');
-            }}>
-                Open RAG Panel
-            </SidebarButton>
-        </SidebarContainer>
-    );
+  return (
+    <>
+      <SidebarContainer isOpen={isOpen} ref={sidebarRef}>
+        <SidebarButton onClick={() => {
+          onPanelSelect('sql');
+          setIsOpen(false);
+        }}>
+          SQL Query Panel
+        </SidebarButton>
+        <SidebarButton onClick={() => {
+          onPanelSelect('rag');
+          setIsOpen(false);
+        }}>
+          RAG Panel
+        </SidebarButton>
+      </SidebarContainer>
+      <ToggleButton isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
+        {isOpen ? '<' : '>'}
+      </ToggleButton>
+    </>
+  );
 };
 
 export default Sidebar;

@@ -8,17 +8,17 @@ from sqlalchemy.ext.asyncio import (create_async_engine, AsyncSession)
 from lib.ai.memory.memory import CustomSQLMemory
 from lib.ai.llm.llm import LLM
 from lib.ai.llm.embedding import Embedding
-import asyncio
+from lib.instances.instance import instance
 
 class SqlQueryAgent:
-    def __init__(self, llm: LLM, memory: CustomSQLMemory, db_path: str, max_iteration: int) -> None:
+    def __init__(self, llm: LLM, memory: CustomSQLMemory, temp_database_path: str, max_iteration: int) -> None:
         self.memory = memory
-        self.db_path = db_path
+        self.temp_database_path = temp_database_path
         self.max_iteration = max_iteration
 
         prompt_template = PromptTemplate(
             input_variables=["table_names", "column_names", "input", "history", "command_result_pair", "iteration", "max_iteration"],
-            template=("""You are a data scientist with access to a database created from one or more CSV files. \
+            template=("""You are a data scientist with access to a postgresql database created from one or more CSV files. \
                       Each table in the database corresponds to a CSV file and Each table in the database is a dataset. Also, you are working in iterations.
 
                         Database Information:
@@ -74,7 +74,7 @@ class SqlQueryAgent:
         command_result_pair = []
         column_names = None
 
-        table_names = await self.runSQLQuery("SELECT name FROM sqlite_master WHERE type='table';")
+        table_names = await self.runSQLQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
 
         if table_names:
             for i in table_names:
@@ -107,7 +107,7 @@ class SqlQueryAgent:
         return "I couldn't generate an answer according to your question. Please change your question and try again."
     
     async def runSQLQuery(self, sqlQuery: str) -> str:
-        async_db_engine = create_async_engine(self.db_path, echo=False)
+        async_db_engine = create_async_engine(instance.async_database_url + "/" + self.temp_database_path, echo=False)
         async_session = sessionmaker(async_db_engine, class_=AsyncSession, expire_on_commit=False)
         async with async_session() as session:
             try:
@@ -129,11 +129,11 @@ class SqlQueryAgent:
 
 
 class RagQueryAgent:
-    def __init__(self, llm: LLM, memory: CustomSQLMemory, db_path: str, embeddings: Embedding, max_iteration: int) -> None:
+    def __init__(self, llm: LLM, memory: CustomSQLMemory, vector_store_path: str, embeddings: Embedding, max_iteration: int) -> None:
         self.max_iteration = max_iteration
         self.memory = memory
         
-        self.vector_store = FAISS.load_local(db_path + "/faiss", embeddings, allow_dangerous_deserialization=True)
+        self.vector_store = FAISS.load_local(vector_store_path + "/faiss", embeddings, allow_dangerous_deserialization=True)
         self.retriever = self.vector_store.as_retriever(search_kwargs={"k": 10})
             
         prompt_template = PromptTemplate(
@@ -160,7 +160,8 @@ class RagQueryAgent:
                     Your Task:
 
                         Use the conversation history to decide whether you need to execute a new filter command or provide a final answer.
-                        Filter command must be a file name.
+                        Filter command must only be a file name.
+                        F'lter command must only be string, not list, not dict or not any other types.
                         Consider that the user query may be related to past results or previous user queries. \
                     If the query relates to prior interactions, take that context into account when generating your response.
                         The user may upload more files after a while and ask questions about all files or new files. So, pay attention to the file names. 
@@ -204,7 +205,7 @@ class RagQueryAgent:
             if "Filter Command:" in result:
                 filter_file = result.split("Filter Command:")[-1].strip()
                 self.retriever.search_kwargs["filter"] = {"filename": filter_file}
-                relevant_doc = await self.retriever.aget_relevant_documents(user_query)
+                relevant_doc = await self.retriever.ainvoke(user_query)
                 result = "\n\n".join([doc.page_content for doc in relevant_doc])
                 filter_file_result_pair.append({f"Filter Command {i}": filter_file, f"Filter Command Result {i}": result})
             else:

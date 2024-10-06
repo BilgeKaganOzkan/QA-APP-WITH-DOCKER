@@ -6,8 +6,6 @@ FRONTEND_PATH="$DIRECTORY/frontend"
 
 VENV_BACKEND_PATH="$BACKEND_PATH/.venv"
 LOG_BACKEND_PATH="$BACKEND_PATH/.log"
-TEMP_DB_BACKEND_PATH="$BACKEND_PATH/.temp_databases"
-ENV_BACKEND_PATH="$BACKEND_PATH/.env"
 NODE_MODULES_FRONTEND_PATH="$FRONTEND_PATH/node_modules"
 
 PYTHON_VERSION=3.11.9
@@ -17,8 +15,8 @@ SESSION_NAME="LangChainSQLApp"
 BACKEND_WINDOW="backend"
 FRONTEND_WINDOW="frontend"
 
-SET_ENV_BACKEND="cd $BACKEND_PATH; source $VENV_BACKEND_PATH/bin/activate; redis-cli CONFIG SET notify-keyspace-events Ex"
-SET_ENV_FRONTEND="cd $FRONTEND_PATH; nvm use $NPM_VERSION"
+SET_ENV_BACKEND="cd $BACKEND_PATH && python -m venv ./.venv && pip install -r requirements.txt && source $VENV_BACKEND_PATH/bin/activate;"
+SET_ENV_FRONTEND="cd $FRONTEND_PATH && nvm use $NPM_VERSION && npm install;"
 
 
 ensure_node_version() {
@@ -51,11 +49,6 @@ if [ ! -d "$LOG_BACKEND_PATH" ]; then
     mkdir -p "$LOG_BACKEND_PATH"
 fi
 
-if [ ! -d "$TEMP_DB_BACKEND_PATH" ]; then
-    echo "Creating $TEMP_DB_BACKEND_PATH directory..."
-    mkdir -p "$TEMP_DB_BACKEND_PATH"
-fi
-
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init --path)"
@@ -73,17 +66,6 @@ if [ ! -d "$VENV_BACKEND_PATH" ]; then
 else
     echo ".venv already exists. Skipping virtual environment setup."
 fi
-echo "$ENV_BACKEND_PATH"
-if [ -e "$ENV_BACKEND_PATH" ]; then
-    echo ".env file already exists. Skipping to create env file."
-else
-    echo "Creating .env ile on $ENV_BACKEND_PATH..."
-    touch "$ENV_BACKEND_PATH"
-    echo -e "\n\n!!!!Please write your openai api key: "
-    read openai_api_key
-    echo -e "\n\n"
-    echo "OPENAI_API_KEY=$openai_api_key" >> $ENV_BACKEND_PATH
-fi
 
 ensure_node_version
 
@@ -100,17 +82,17 @@ npm run build
 
 cd "$DIRECTORY"
 
-redis-server &
-
 tmux new-session -d -s $SESSION_NAME -n $BACKEND_WINDOW
-tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "$SET_ENV_BACKEND" "Enter"
-tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "while true; do python -B app.py; done" "Enter"
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "$SET_ENV_BACKEND"
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW "&& while true; do python -B app.py; done"
+tmux send-keys -t $SESSION_NAME:$BACKEND_WINDOW ENTER
 
-sleep 3
+sleep 150
 
 tmux new-window -t $SESSION_NAME -n $FRONTEND_WINDOW
-tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "$SET_ENV_FRONTEND" "Enter"
-tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "while true; do npm start; done" "Enter"
+tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "$SET_ENV_FRONTEND"
+tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW "&& npm run build && while true; do npm install -g serve && serve -s build; done"
+tmux send-keys -t $SESSION_NAME:$FRONTEND_WINDOW ENTER
 
 sleep 5
 

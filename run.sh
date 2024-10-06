@@ -3,12 +3,13 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Define the Docker image name
-IMAGE_NAME="qa-app"
+# Define the Docker Compose service name for your app
+SERVICE_NAME="qa_app"
 
-# Define the Docker workspace path on the host and container
+# Define the Docker workspace path on the host
 HOST_WORKSPACE="$(pwd)/docker_workspace"
-CONTAINER_WORKSPACE="/home/gktrk/docker_workspace"
+BACKEND_PATH="$HOST_WORKSPACE/backend"
+ENV_BACKEND_PATH="$BACKEND_PATH/.env"
 
 # Check if the docker_workspace directory exists on the host, if not, create it
 if [ ! -d "$HOST_WORKSPACE" ]; then
@@ -16,27 +17,36 @@ if [ ! -d "$HOST_WORKSPACE" ]; then
     exit 1
 fi
 
-# Build the Docker image if it doesn't exist
-if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
-    echo "Docker image $IMAGE_NAME does not exist. Building the image..."
-    docker build -t $IMAGE_NAME .
-else
-    echo "Docker image $IMAGE_NAME already exists."
+# Check if Docker Compose is installed
+if ! [ -x "$(command -v docker compose)" ]; then
+  echo 'Error: docker compose is not installed.' >&2
+  exit 1
 fi
 
-# Check if the Docker network exists, if not, create it
-if ! docker network ls | grep -q "qa-app-network"; then
-    echo "Docker network qa-app-network does not exist. Creating the network..."
-    docker network create --subnet=172.18.0.0/16 qa-app-network
+echo "$ENV_BACKEND_PATH"
+if [ -e "$ENV_BACKEND_PATH" ]; then
+    echo ".env file already exists. Skipping to create env file."
 else
-    echo "Docker network qa-app-network already exists."
+    echo "Creating .env ile on $ENV_BACKEND_PATH..."
+    touch "$ENV_BACKEND_PATH"
+    echo -e "\n\n!!!!Please write your openai api key: "
+    read openai_api_key
+    echo -e "\n\n"
+    echo "OPENAI_API_KEY=$openai_api_key" >> $ENV_BACKEND_PATH
 fi
 
-# Run the Docker container and mount the docker_workspace directory
-echo "Running Docker container from image $IMAGE_NAME..."
-docker run -it --rm \
-    -v "$HOST_WORKSPACE:$CONTAINER_WORKSPACE" \
-    --network qa-app-network --ip 172.18.0.22 \
-    --privileged \
-    --name="${IMAGE_NAME}" \
-    $IMAGE_NAME
+# Build the Docker images using docker-compose (it will only build if necessary)
+echo "Building the Docker images using docker compose..."
+docker compose build
+
+# Start the services using docker-compose
+echo "Starting the services using docker-compose..."
+docker compose up --build &
+
+# Check if the services are running
+if [[ "$(docker compose ps -q $SERVICE_NAME)" == "" ]]; then
+    echo "Error: $SERVICE_NAME service is not running."
+    exit 1
+else
+    echo "$SERVICE_NAME service is running."
+fi

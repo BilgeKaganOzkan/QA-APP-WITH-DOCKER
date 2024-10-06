@@ -1,14 +1,10 @@
+from lib.instances.instance import instance
 import os
 
-log_file_dir = "./.log"
-temp_database_file_dir = "./.temp_databases"
-vector_stores_file_dir = "./.vector_stores"
+class FilesChecker:
+    def __init__(self, dir_list) -> None:
+        for dir in dir_list:
+            if not os.path.exists(dir):
+                os.mkdir(dir)
 
-if not os.path.exists(log_file_dir):
-    os.mkdir(log_file_dir)
-
-if not os.path.exists(temp_database_file_dir):
-    os.mkdir(temp_database_file_dir)
-
-if not os.path.exists(vector_stores_file_dir):
-    os.mkdir(vector_stores_file_dir)
+filesChecker = FilesChecker(instance.check_list)

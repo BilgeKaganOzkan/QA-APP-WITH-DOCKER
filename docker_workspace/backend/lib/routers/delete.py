@@ -1,23 +1,91 @@
-from lib.routers.instance import *
+from fastapi import (APIRouter, Depends, Response)
+from lib.models.general_models import InformationResponse
+from lib.instances.instance import instance
+import os, asyncio, shutil
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.sql import text
+
+async def _deleteTempDatabase(session: tuple = Depends(instance.redis_tool.getSession)):
+    db_url = instance.async_database_url + "/postgres"
+    
+    _, session_data = session
+    temp_database_name = session_data.get("temp_database_path", "")
+    
+    async_temp_database_engine = create_async_engine(db_url, echo=False, isolation_level="AUTOCOMMIT")
+    
+    async with async_temp_database_engine.connect() as connection:
+        db_check_query = f"SELECT 1 FROM pg_database WHERE datname = '{temp_database_name}';"
+        result = await connection.execute(text(db_check_query))
+        database_exists = result.fetchone()
+
+        if database_exists:
+            terminate_connections_query = f"""
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = '{temp_database_name}'
+                AND pid <> pg_backend_pid();
+            """
+            await connection.execute(text(terminate_connections_query))
+
+            drop_db_query = f"DROP DATABASE {temp_database_name};"
+            await connection.execute(text(drop_db_query))
+
+    return True
+
+async def _clearTempDatabase(session: tuple = Depends(instance.redis_tool.getSession)):
+    _, session_data = session
+    db_url = instance.async_database_url + f"/{session_data.get('temp_database_path', '')}"
+    
+    async_temp_database_engine = create_async_engine(db_url, echo=False, isolation_level="AUTOCOMMIT")
+    
+    try:
+        async with async_temp_database_engine.connect() as connection:
+            get_tables_query = """
+                SELECT tablename 
+                FROM pg_tables 
+                WHERE schemaname = 'public';
+            """
+            result = await connection.execute(text(get_tables_query))
+            tables = result.fetchall()
+
+            if tables:
+                for table in tables:
+                    drop_table_query = f"DROP TABLE IF EXISTS {table[0]} CASCADE;"
+                    await connection.execute(text(drop_table_query))
+    except:
+        pass
+
+    return True
+
+async def _deleteVectorStore(session: tuple = Depends(instance.redis_tool.getSession)):
+    _, session_data = session
+    
+    vector_store_path = session_data.get("vector_store_path", "")
+    
+    if vector_store_path != '':
+        try:
+            if os.path.isdir(vector_store_path):
+                await asyncio.to_thread(shutil.rmtree, path=vector_store_path, ignore_errors=True)
+            else:
+                await asyncio.to_thread(os.remove, vector_store_path)
+        except:
+            pass
+
+    return True
 
 router = APIRouter()
 
-@router.delete(end_session_end_point, response_model=InformationResponse)
-async def endSession(response: Response, session: tuple = Depends(redis.getSession)):
-    session_id, session_data = session
-    db_path = session_data.get("db_path", "").replace("sqlite+aiosqlite:///", "")
-    
-    if db_path != '':
-        await redis.deleteSession(f"session:{session_id}")
-        
-        response.delete_cookie("session_id")
+@router.post(instance.clear_session_end_point, response_model=InformationResponse)
+@router.delete(instance.clear_session_end_point, response_model=InformationResponse)
+async def clearSession(response: Response, session: tuple = Depends(instance.redis_tool.getSession), db_deleted: bool = Depends(_clearTempDatabase), vs_deleted: bool = Depends(_deleteVectorStore)):    
+    return {"informationMessage": "Session cleared."}
 
-        try:
-            if os.path.isdir(db_path):
-                await asyncio.to_thread(shutil.rmtree, path=db_path, ignore_errors=True)
-            else:
-                await asyncio.to_thread(os.remove, db_path)
-        finally:
-            await memory.deleteMemory(session_id=session_id)
-        
+@router.post(instance.end_session_end_point, response_model=InformationResponse)
+@router.delete(instance.end_session_end_point, response_model=InformationResponse)
+async def endSession(response: Response, session: tuple = Depends(instance.redis_tool.getSession), db_deleted: bool = Depends(_deleteTempDatabase), vs_deleted: bool = Depends(_deleteVectorStore)):
+    session_id, _ = session
+
+    await instance.memory.deleteMemory(session_id=session_id)
+    await instance.redis_tool.deleteSession(session_id=session_id)
+
     return {"informationMessage": "Session ended."}

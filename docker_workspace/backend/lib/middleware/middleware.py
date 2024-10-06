@@ -1,15 +1,14 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request, HTTPException, status
 from logging.handlers import RotatingFileHandler
-import logging, os
-
-log_file_path = "./.log/fastapi_app.log"
+from lib.instances.instance import instance
+import logging
 
 logging.basicConfig(
     level=logging.ERROR,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        RotatingFileHandler(log_file_path, maxBytes=10485760, backupCount=100),
+        RotatingFileHandler(instance.log_file_path, maxBytes=10485760, backupCount=100),
     ]
 )
 
