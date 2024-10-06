@@ -17,4 +17,4 @@ To start the application, simply run the `run.sh` script. This will set up the e
 
 During the setup process, you will be prompted to enter your OpenAI access token. Make sure to input the correct token, as the program requires it to function properly.
 
-Once the container is running, you can access the program at `http://172.18.0.22:3000/`
+Once the container is running, you can access the program at `http://172.20.0.22:3000/`
