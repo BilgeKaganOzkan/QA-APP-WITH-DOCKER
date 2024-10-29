@@ -1,0 +1,46 @@
+/* src/components/SideBar.css */
+
+.SideBar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 220px;
+    height: 100%;
+    background-color: #20232a;
+    color: white;
+    padding-top: 60px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+  }
+  
+  .SideBar-button {
+    width: 180px;
+    margin: 10px;
+    padding: 12px;
+    background-color: #61dafb;
+    color: #20232a;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .SideBar-button:hover {
+    background-color: #21a1f1;
+  }
+  
+  .toggle-button-container {
+    position: fixed;
+    top: 20px;
+    width: 30px;
+    height: 30px;
+    background-color: #61dafb;
+    color: #20232a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 1100;
+    transition: left 0.3s ease;
+  }  

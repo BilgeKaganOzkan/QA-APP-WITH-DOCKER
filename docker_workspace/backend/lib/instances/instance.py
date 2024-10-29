@@ -5,9 +5,34 @@ from lib.ai.llm.llm import LLM
 from lib.ai.llm.embedding import Embedding
 
 class Instance:
-    def __init__(self) -> None:
-        self.config = Configuration()
+    _instance = None
 
+    def __new__(cls, *args, **kwargs):
+        """
+        @brief Creates a singleton instance of the Instance class.
+
+        This method ensures that only one instance of the Instance class is created
+        and reused throughout the application.
+        """
+        if cls._instance is None:
+            cls._instance = super(Instance, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        """
+        @brief Initializes the instance with configuration and necessary components.
+
+        This method loads configuration settings, initializes memory, LLM, embedding, and
+        the Redis tool. It is designed to run only once, utilizing a flag to prevent
+        re-initialization.
+        """
+        if getattr(self, '_initialized', False):
+            return  # Prevent re-initialization
+
+        # Load configuration from the specified YAML file
+        self.config = Configuration(config_file_path='./config/config.yaml')
+
+        # Initialize various attributes from the configuration
         self.llm_model_name = self.config.getLLMModelName()
         self.embedding_model_name = self.config.getEmbeddingLLMModelName()
         self.llm_max_iteration = self.config.getLLMMaxIteration()
@@ -27,7 +52,7 @@ class Instance:
         self.max_file_limit = self.config.getMaxFileLimit()
         self.sync_database_url = self.config.getSyncDatabaseUrl()
         self.async_database_url = self.config.getAsyncDatabaseUrl()
-        self.user_database_name= self.config.getUserDatabaseName()
+        self.user_database_name = self.config.getUserDatabaseName()
         self.redis_ip = self.config.getRedisIP()
         self.redis_port = self.config.getRedisPort()
         self.app_ip = self.config.getAppIP()
@@ -36,9 +61,16 @@ class Instance:
         self.check_list = self.config.getCheckList()
         self.origin_list = self.config.getOriginList()
 
-        self.memory = CustomMemoryDict()
-        self.llm = LLM(llm_model_name=self.llm_model_name)
-        self.embedding = Embedding(model_name=self.embedding_model_name).get_embedding()
-        self.redis_tool = RedisTool(memory=self.memory, session_timeout=self.session_timeout, redis_ip=self.redis_ip, redis_port=self.redis_port)
+        # Initialize memory and AI components
+        self.memory = CustomMemoryDict()  # Create an instance of custom memory
+        self.llm = LLM(llm_model_name=self.llm_model_name)  # Initialize the LLM
+        self.embedding = Embedding(model_name=self.embedding_model_name).get_embedding()  # Get embedding model
+        self.redis_tool = RedisTool(
+            memory=self.memory,
+            session_timeout=self.session_timeout,
+            redis_ip=self.redis_ip,
+            redis_port=self.redis_port,
+            async_database_url=self.async_database_url
+        )  # Initialize the Redis tool with the necessary parameters
 
-instance = Instance()
+        self._initialized = True  # Set the initialized flag to True

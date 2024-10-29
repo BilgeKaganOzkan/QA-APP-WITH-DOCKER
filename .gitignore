@@ -4,6 +4,9 @@ docker_workspace/backend/.log
 docker_workspace/backend/.vector_stores
 docker_workspace/backend/.vscode
 **/__pycache__/
+**/.pytest_cache/
 docker_workspace/frontend/node_modules
 docker_workspace/frontend/package-lock.json
 docker_workspace/frontend/build
+docker_workspace/frontend/cypress
+docker_workspace/frontend/.vscode

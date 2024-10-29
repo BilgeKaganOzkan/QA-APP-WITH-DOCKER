@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useContext } from 'rea
 import { useNavigate } from 'react-router-dom';
 import './MainApp.css';
 import QueryInput from './QueryInput';
-import Sidebar from './Sidebar';
+import SideBar from './SideBar';
 import ChatBox from './ChatBox';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
@@ -18,22 +18,37 @@ import {
 } from '../config/constants';
 import Cookies from 'js-cookie';
 
+/**
+ * @brief Main application component for user interaction.
+ *
+ * This component serves as the main interface for users to interact with
+ * the system. It allows users to send queries, upload files, and view
+ * responses from the AI. It manages the authentication state and session
+ * operations while displaying chat messages and progress.
+ *
+ * @return {JSX.Element} The rendered MainApp component.
+ */
 const MainApp = () => {
     const { isAuthenticated, setIsAuthenticated, setUser } = useContext(AuthContext);
-    const [messages, setMessages] = useState([]);
-    const [selectedPanel, setSelectedPanel] = useState('sql');
-    const fileInputRef = useRef(null);
+    const [messages, setMessages] = useState([]); // State for chat messages
+    const [selectedPanel, setSelectedPanel] = useState('sql'); // State for selected panel (SQL/RAG)
+    const fileInputRef = useRef(null); // Reference for the file input element
 
-    const isSessionInProgressRef = useRef(false);
-    const isFirstLoadRef = useRef(true);
+    const isSessionInProgressRef = useRef(false); // Reference to track session state
+    const isFirstLoadRef = useRef(true); // Reference to track first load state
 
-    const [selectedFiles, setSelectedFiles] = useState([]);
-    const [progress, setProgress] = useState(0);
-    const [uploading, setUploading] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState([]); // State for selected files
+    const [progress, setProgress] = useState(0); // State for file upload progress
+    const [uploading, setUploading] = useState(false); // State for upload status
 
-    const [thinking, setThinking] = useState(false);
-    const navigate = useNavigate();
+    const [thinking, setThinking] = useState(false); // State for AI thinking status
+    const navigate = useNavigate(); // Hook for navigation
 
+    /**
+     * @brief Clears all cookies stored in the browser.
+     *
+     * This function iterates over all cookies and removes them.
+     */
     const clearCookies = useCallback(() => {
         const allCookies = Cookies.get();
         Object.keys(allCookies).forEach(cookieName => {
@@ -41,6 +56,12 @@ const MainApp = () => {
         });
     }, []);
 
+    /**
+     * @brief Handles HTTP errors and sets error messages in the chat.
+     *
+     * @param {Object} error - The error object from the HTTP request.
+     * @param {string} defaultMessage - Default message to show if no specific error message is available.
+     */
     const handleHttpError = useCallback((error, defaultMessage) => {
         const errorMessages = [];
         console.error('Error response:', error.response?.data);
@@ -82,6 +103,11 @@ const MainApp = () => {
         ]);
     }, [navigate, setIsAuthenticated, setUser, clearCookies]);
 
+    /**
+     * @brief Clears the current session on the server.
+     *
+     * This function sends a request to clear the session and resets session initiation state.
+     */
     const clearSession = useCallback(async () => {
         if (!window.sessionInitiated) {
             return;
@@ -94,6 +120,12 @@ const MainApp = () => {
         }
     }, [handleHttpError]);
 
+    /**
+     * @brief Starts a new session for the user.
+     *
+     * This function initializes a session by sending a request to the server
+     * and updating the chat messages accordingly.
+     */
     const startSession = useCallback(async () => {
         if (window.sessionInitiated || isSessionInProgressRef.current) {
             return;
@@ -129,6 +161,13 @@ const MainApp = () => {
         }
     }, [handleHttpError]);
 
+    /**
+     * @brief Switches between SQL and RAG panels.
+     *
+     * This function clears the current session and starts a new one for the selected panel.
+     *
+     * @param {string} panel - The panel to switch to ('sql' or 'rag').
+     */
     const switchPanel = useCallback(async (panel) => {
         if (panel === selectedPanel) {
             return;
@@ -145,6 +184,13 @@ const MainApp = () => {
         ]);
     }, [clearSession, startSession, selectedPanel]);
 
+    /**
+     * @brief Handles file selection and validates file types.
+     *
+     * This function checks the selected files and ensures they are of the correct type.
+     *
+     * @param {FileList} files - The files selected by the user.
+     */
     const handleFileSelection = (files) => {
         const errorMessages = [];
         const newFiles = [];
@@ -171,10 +217,22 @@ const MainApp = () => {
         setSelectedFiles(prevFiles => [...prevFiles, ...newFiles]);
     };
 
+    /**
+     * @brief Removes a selected file from the list.
+     *
+     * @param {number} index - The index of the file to remove.
+     */
     const removeSelectedFile = (index) => {
         setSelectedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
     };
 
+    /**
+     * @brief Handles file upload to the server.
+     *
+     * This function uploads selected files to the server and manages progress tracking.
+     *
+     * @return {Promise<boolean>} Indicates whether the upload was successful.
+     */
     const handleFileUpload = async () => {
         if (selectedFiles.length === 0) {
             return true;
@@ -254,6 +312,13 @@ const MainApp = () => {
         }
     };
 
+    /**
+     * @brief Handles submission of user queries.
+     *
+     * This function sends user queries to the server and updates the chat with responses.
+     *
+     * @param {string} query - The user query to send.
+     */
     const handleQuerySubmit = async (query) => {
         setMessages(prevMessages => [...prevMessages, { type: 'user', text: query }]);
         setThinking(true);
@@ -278,6 +343,13 @@ const MainApp = () => {
         }
     };
     
+    /**
+     * @brief Handles sending the query and managing file uploads.
+     *
+     * This function uploads files if selected, then sends the user's query.
+     *
+     * @param {string} query - The user query to send.
+     */
     const handleSend = async (query) => {
         if (selectedFiles.length > 0) {
             const uploadSuccess = await handleFileUpload();
@@ -288,10 +360,18 @@ const MainApp = () => {
         }
     };
 
+    /**
+     * @brief Handles panel selection for switching views.
+     *
+     * @param {string} panel - The panel to switch to ('sql' or 'rag').
+     */
     const handlePanelSelect = async (panel) => {
         await switchPanel(panel);
     };
 
+    /**
+     * @brief Logs out the user and clears session data.
+     */
     const logout = async () => {
         try {
             await axios.delete(END_SESSION_URL, { withCredentials: true });
@@ -342,37 +422,36 @@ const MainApp = () => {
 
     return (
         <div className="container">
-            <Sidebar onPanelSelect={handlePanelSelect} />
+            <SideBar onPanelSelect={handlePanelSelect} />
             <header>
                 <h1>Q&A with {selectedPanel === 'sql' ? 'Tabular Data' : 'RAG'}</h1>
-                <button onClick={logout} className="logout-button">Logout</button>
+                <button onClick={logout} className="logout-button" id='logout-button'>Logout</button>
             </header>
             <main className="main-content">
-            <ChatBox
-                messages={[
-                    ...messages,
-                    ...(thinking
-                        ? [
-                            {
-                                type: 'ai',
-                                text: (
-                                    <div className="thinking-message">
-                                        <span className="thinking-text">Thinking</span>
-                                        <span className="dots"></span>
-                                    </div>
-                                ),
-                            },
-                        ]
-                        : []),
-                ]}
-            />
-            {uploading && (
-                <div className="progress-container">
-                    <p>Uploading files... {progress}%</p>
-                    <progress value={progress} max="100"></progress>
-                </div>
-            )}
-            
+                <ChatBox
+                    messages={[
+                        ...messages,
+                        ...(thinking
+                            ? [
+                                {
+                                    type: 'ai',
+                                    text: (
+                                        <div className="thinking-message">
+                                            <span className="thinking-text">Thinking</span>
+                                            <span className="dots"></span>
+                                        </div>
+                                    ),
+                                },
+                            ]
+                            : []),
+                    ]}
+                />
+                {uploading && (
+                    <div className="progress-container">
+                        <p>Uploading files... {progress}%</p>
+                        <progress value={progress} max="100"></progress>
+                    </div>
+                )}
             </main>
             <QueryInput
                 handleSend={handleSend}
@@ -384,13 +463,11 @@ const MainApp = () => {
                 selectedPanel={selectedPanel}
                 disabled={thinking || uploading}
             />
-            
             <footer>
                 <p>Author: Bilge Kagan Ozkan</p>
             </footer>
         </div>
     );    
-    
 };
 
 export default MainApp;
