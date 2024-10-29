@@ -1,0 +1,60 @@
+/* src/components/Login.css */
+
+.auth-container {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.auth-form label {
+    margin: 10px 0 5px;
+    font-weight: bold;
+}
+
+.auth-form input {
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+button#SignUp-button {
+    background-color: #007bff;
+    color: #fff;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+button#SSignUp-button:disabled {
+    background-color: #a1d4f8;
+    cursor: not-allowed;
+}
+
+button#SSignUp-button:hover:not(:disabled) {
+    background-color: #21a1f1;
+}
+
+.error {
+    color: #e74c3c;
+    margin-top: -10px;
+    margin-bottom: 15px;
+}
+
+.success {
+    color: #2ecc71;
+    margin-top: -10px;
+    margin-bottom: 15px;
+}

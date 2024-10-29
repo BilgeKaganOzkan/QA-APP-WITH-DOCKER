@@ -52,6 +52,8 @@ RUN apt update \
         nodejs \
         postgresql-client \
         xsel \
+        doxygen \
+        xvfb \
     && apt clean \
     && rm -rf /var/lib/apt/lists/*
 
