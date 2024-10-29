@@ -26,7 +26,7 @@
  
  Once the container is running, access the application at `http://172.20.0.22:3000/`.
  
- Alternatively, the project has been deployed at [https://www.qaapp.com](https://www.qaapp.com) for ease of use without setup. However, note that the application is currently under development and may contain some bugs.
+ Alternatively, the project has been deployed at [https://www.qaapp.online](https://www.qaapp.online) for ease of use without setup. However, note that the application is currently under development and may contain some bugs.
  
  ## Using the Project
  
@@ -98,7 +98,7 @@
  
  ## Limitations
  
- Due to server capacity constraints on the [https://www.qaapp.com](https://www.qaapp.com) deployment, the following limitations apply:
+ Due to server capacity constraints on the [https://www.qaapp.online](https://www.qaapp.online) deployment, the following limitations apply:
  
  - Each session allows a maximum of:
    - 5 PDF files on the RAG Panel
