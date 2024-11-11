@@ -72,7 +72,6 @@ async def login(response: Response, form_data: UserLogin, db: AsyncSession = Dep
     # Create a new session for the user
     session_id = await instance.redis_tool.createSession()
     await instance.memory.createMemory(session_id=session_id)
-    await instance.redis_tool.updateSession(session_id=session_id, key="user_email", value=user.email)
     
     # Set a cookie for the session ID
     response.set_cookie(

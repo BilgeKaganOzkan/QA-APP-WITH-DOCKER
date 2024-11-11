@@ -166,7 +166,6 @@ async def test_sql_agent_add_history_to_memory_success(sql_agent):
         human_message={"human_message": user_query},
         command_result_pair_dict={"command_result_pair_list": command_result_pair_list},
         ai_message={"ai_message": result},
-        is_sql=True
     )
 
 @pytest.mark.asyncio
@@ -183,4 +182,4 @@ async def test_sql_agent_get_history_from_memory_success(sql_agent):
     # Execute getHistoryFromMemory and verify the result
     result = await sql_agent_instance.getHistoryFromMemory()
     assert result == "This is the SQL history"
-    sql_agent_instance.memory.getHistory.assert_called_once_with(is_sql=True)
+    sql_agent_instance.memory.getHistory.assert_called_once_with()

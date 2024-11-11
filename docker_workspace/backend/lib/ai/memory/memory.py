@@ -13,7 +13,7 @@ class CustomSQLMemory:
     def __init__(self):
         self.memory_data = []  # Initialize an empty list to store memory data
 
-    def saveContext(self, human_message: dict, command_result_pair_dict: list, ai_message: dict, is_sql: bool = True) -> None:
+    def saveContext(self, human_message: dict, command_result_pair_dict: list, ai_message: dict) -> None:
         """
         @brief Saves the context of a human-AI interaction.
 
@@ -38,14 +38,13 @@ class CustomSQLMemory:
 
         self.memory_data.append(context_dict)  # Append the context to memory data
             
-    def getHistory(self, is_sql: bool = True) -> dict:    
+    def getHistory(self) -> dict:    
         """
         @brief Retrieves the history of interactions.
 
         This method constructs a string representation of the memory data,
         summarizing all human messages, command results, and AI messages.
 
-        @param is_sql (bool): A flag indicating whether to filter the history by SQL (default: True).
         @return A string summarizing the entire interaction history.
         """
         # Join all context items into a formatted history string

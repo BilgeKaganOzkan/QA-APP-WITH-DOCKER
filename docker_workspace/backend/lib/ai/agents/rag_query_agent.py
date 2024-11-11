@@ -152,7 +152,7 @@ class RagQueryAgent:
         command_result_pair_dict = {"command_result_pair_list": filter_file_result_pair}  # Prepare command-result pairs
         ai_message_dict = {"ai_message": result}  # Prepare AI message dictionary
         # Save context to memory
-        self.memory.saveContext(human_message=human_message_dict, command_result_pair_dict=command_result_pair_dict, ai_message=ai_message_dict, is_sql=True)
+        self.memory.saveContext(human_message=human_message_dict, command_result_pair_dict=command_result_pair_dict, ai_message=ai_message_dict)
 
     async def getHistoryFromMemory(self) -> str:
         """
@@ -160,7 +160,7 @@ class RagQueryAgent:
 
         @return The formatted history of interactions as a string.
         """
-        return self.memory.getHistory(is_sql=True)  # Get and return history from memory
+        return self.memory.getHistory()  # Get and return history from memory
     
     def getAvailableFiles(self):
         """

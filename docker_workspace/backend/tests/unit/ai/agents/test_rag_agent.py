@@ -158,7 +158,7 @@ async def test_rag_agent_get_history_from_memory_success(mock_rag_agent):
     # Retrieve history and validate it matches expected result
     result = await rag_agent_instance.getHistoryFromMemory()
     assert result == {"Test SQL History"}
-    rag_agent_instance.memory.getHistory.assert_called_once_with(is_sql=True)
+    rag_agent_instance.memory.getHistory.assert_called_once_with()
 
 @pytest.mark.asyncio
 async def test_rag_agent_get_available_files_success(mock_rag_agent):
